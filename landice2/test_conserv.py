@@ -49,14 +49,10 @@ class RegridTests(unittest.TestCase):
     def setUp(self):
         print('BEGIN RegridTests.setUp(): ', ICEBIN_IN)
         self.mm = icebin.GCMRegridder(ICEBIN_IN)
-        print('AA0')
         self.rm = self.mm.regrid_matrices(ice_sheet)
 		# Smooth 50km in XY direction, 100m in Z direction
-        print('AA1')
         sigma=(50000., 50000., 100.)
-        print('AA2')
         self.wIvE,self.IvE,self.IvEw = self.rm.matrix('IvE', scale=True, sigma=sigma)()
-        print('AA2')
 
         self.wAvI,self.AvI,self.AvIw = self.rm.matrix('AvI', scale=True)()
         self.wIvA,self.IvA,self.IvAw = self.rm.matrix('IvA', scale=True)()
@@ -100,7 +96,7 @@ class RegridTests(unittest.TestCase):
             ratio = a/b
             if not np.isnan(ratio):
                 try:
-                    self.assertAlmostEqual(1.,ratio)
+                    self.assertAlmostEqual(1.,ratio, msg='ix={}'.format(ix))
                     pass
                 except:
                     print('A={}, B={}'.format(a,b))
