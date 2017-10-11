@@ -22,7 +22,7 @@ parser.add_argument('--gic-leaf', dest='gic',
 parser.add_argument('--icebin-in', dest='icebin_in',
     help="Name of IceBin input file")
 parser.add_argument('--elev-mask', dest='elev_mask',
-    help="name of elevation / mask file from the high-res ice sheet.")
+    help="name of elevation / mask file from the high-res ice sheet (extract of a PISM file).")
 parser.add_argument('--elev-mask-type', dest='elev_mask_type',
     help="File type for elev-mask: pism, mar")
 parser.add_argument('--stieglitz', action='store_true', default=False,
