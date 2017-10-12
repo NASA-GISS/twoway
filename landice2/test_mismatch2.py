@@ -15,6 +15,7 @@ from modele.constants import SHI,LHM,RHOI,RHOS,UI_ICEBIN,UI_NOTHING
 import scipy.sparse
 import itertools
 import unittest
+import contextlib
 
 def compute_fcontO(mmO, sheetname):
     """Computes Continent land fractions, based on a single ice sheet.
@@ -48,9 +49,16 @@ def compute_fcontO(mmO, sheetname):
 
 class MismatchTests(unittest.TestCase):
 
+    """Tests GCMRegridder_ModelE, where the ice sheet is mismatched
+    between GCM and Dynamic Ice Model."""
+
     def setUp(self):
         self.sheetname = 'greenland'
         self.mmO = icebin.GCMRegridder(args.icebin_in)
+
+        rmO = self.mmO.regrid_matrices(self.sheetname)
+        OvI = rmO.matrix('AvI', scale=False, correctA=False)    # WeightedSparse
+        _,_,self.wI = OvI()
 
         with netCDF4.Dataset(args.icebin_in) as nc:
             self.indexingI = ibgrid.Indexing(nc, 'm.greenland.gridI.indexing')
@@ -65,15 +73,27 @@ class MismatchTests(unittest.TestCase):
         self.areaA1 = np.zeros((nA1,))
         self.areaA1[indexA_sub] = areaA_sub    # Native area of full grid cell (on sphere)
 
+        self.fcontOp, self.fcontOm = compute_fcontO(self.mmO, self.sheetname)
+
+        # Construct a GCMRegridder_Model to/from the Atmosphere Grid
+        self.mmA = self.mmO.to_modele(1.-self.fcontOp, 1.-self.fcontOm)
+
+    @contextlib.contextmanager
+    def new_nc(self, fname):
+        with netCDF4.Dataset(fname, 'w') as nc:
+            nc.createDimension('jmO', self.indexingA.shape[0])
+            nc.createDimension('imO', self.indexingA.shape[1])
+            nc.createDimension('nx', self.indexingI.shape[0])
+            nc.createDimension('ny', self.indexingI.shape[1])
+            nc.createDimension('jmA', self.indexingA.shape[0]/2)
+            nc.createDimension('imA', self.indexingA.shape[1]/2)
+
+            yield nc
+
 
     def test_weight_sums(self):
 
-        fcontOp, fcontOm = compute_fcontO(self.mmO, self.sheetname)
-
-        # Construct a regridder to the Atmosphere grid
-        mmA = self.mmO.to_modele(1.-fcontOp, 1.-fcontOm)
-        rmA = mmA.regrid_matrices('greenland')
-
+        rmA = self.mmA.regrid_matrices(self.sheetname)
         wAAm, AAmvIp, wIp = rmA.matrix('AAmvIp', scale=True, correctA=False)()
 
         # -----------------------------
@@ -90,9 +110,10 @@ class MismatchTests(unittest.TestCase):
         sum_wOvI = np.nansum(wOvI)
         sum_wOvI_correct = np.nansum(wOvI_correct)
         sum_wAAm = np.nansum(wAAm)
-        sum_fcontOp = np.sum(fcontOp * self.areaA1)
-        sum_fcontOm = np.sum(fcontOm * self.areaA1)
+        sum_fcontOp = np.sum(self.fcontOp * self.areaA1)
+        sum_fcontOm = np.sum(self.fcontOm * self.areaA1)
 
+        self.assertAlmostEqual(1.0, sum_wIp / sum(self.wI))
         self.assertAlmostEqual(1.0, sum_wIp / sum_wOvI)
         self.assertAlmostEqual(1.0, sum_wOvI_correct / sum_fcontOp)
         self.assertAlmostEqual(1.0, sum_wAAm / sum_fcontOm)
@@ -100,24 +121,55 @@ class MismatchTests(unittest.TestCase):
 
 
         # Store for viewing
-        with netCDF4.Dataset('test_weight_sums.nc', 'w') as nc:
-            nc.createDimension('jmO', self.indexingA.shape[0])
-            nc.createDimension('imO', self.indexingA.shape[1])
-            nc.createDimension('nx', self.indexingI.shape[0])
-            nc.createDimension('ny', self.indexingI.shape[1])
-            nc.createDimension('jmA', self.indexingA.shape[0]/2)
-            nc.createDimension('imA', self.indexingA.shape[1]/2)
-
+        with self.new_nc('test_weight_sums.nc') as nc:
             fcontOp_nc = nc.createVariable('fcontOp', 'd', ('jmO', 'imO'))
             fcontOm_nc = nc.createVariable('fcontOm', 'd', ('jmO', 'imO'))
             wIp_nc = nc.createVariable('wIp', 'd', ('nx', 'ny'))
             wAAm_nc = nc.createVariable('wAAm', 'd', ('jmA', 'imA'))
 
-            fcontOp_nc[:] = fcontOp[:]
-            fcontOm_nc[:] = fcontOm[:]
+            fcontOp_nc[:] = self.fcontOp[:]
+            fcontOm_nc[:] = self.fcontOm[:]
             wIp_nc[:] = wIp[:]
             wAAm_nc[:] = wAAm[:]
 
+    # -----------------------------------------------------
+    # Sample functions
+    def diagonalI(self):
+        shapeI = self.indexingI.shape
+        valI = np.zeros(shapeI)
+        for i in range(0,shapeI[0]):
+            for j in range(0,shapeI[1]):
+                valI[i,j] = i + j
+        return valI.reshape(-1)
+    # -----------------------------------------------------
+
+    def assert_eq_weighted(self, A, wA, B, wB):
+        Asum = np.nansum(np.multiply(A, wA))
+        Bsum = np.nansum(np.multiply(B, wB))
+        self.assertAlmostEqual(1., Asum/Bsum)
+
+
+    def test_conserv(self):
+        """Tests conservation of mass.  Checks that the amount of
+        stuff (== value * weight) remains constant."""
+
+        rmA = self.mmA.regrid_matrices(self.sheetname)
+        AAmvIp = rmA.matrix('AAmvIp', scale=True)
+        wAAm,_,wIp = AAmvIp()
+
+        for fname,valIp_fn in (('mismatch_diagonal', self.diagonalI),):
+            valIp = valIp_fn()
+
+            # A <--> I
+            valAAmIp = AAmvIp.apply(valIp, fill=np.nan, force_conservation=False)
+#            self.assert_eq_weighted(valIp, wIp, valAAmIp, wAAm)
+
+            with self.new_nc(fname + '.nc') as nc:
+                valIp_nc = nc.createVariable('valIp', 'd', ('nx', 'ny'))
+                valAAmIp_nc = nc.createVariable('wAAmIp', 'd', ('jmA', 'imA'))
+
+                valIp_nc[:] = valIp[:]
+                valAAmIp_nc[:] = valAAmIp[:]
 
 
 
