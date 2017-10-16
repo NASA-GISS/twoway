@@ -17,18 +17,12 @@ import itertools
 import unittest
 import contextlib
 
-def compute_fcontO(mmO, sheetname):
-    """Computes Continent land fractions, based on a single ice sheet.
-    This prototype code will likely be converted to C++"""
-
-    rmO = mmO.regrid_matrices(sheetname)
-
-    # Regrid to fxoceanOp  (PISM fcont)
-    OvI = rmO.matrix('AvI', scale=False, correctA=False)    # WeightedSparse
-    OvI_correct = rmO.matrix('AvI', scale=False, correctA=True)
-
+def get_fcontOp(mmO, OvI):
     # Don't need to set up the mask on I ourselves; this is already
-    # built into the OvI matrix.
+    # built into the OvI matrix.  The mask, taken from PISM, includes
+    # all bare land and ice-covered areas.
+    # See: pygiss/giss/pism.py   _get_landmask()
+    #    (used by write_icebin_in_base.py)
     fcontI = np.ones(OvI.shape[1])
 
     # Full native area of Ocean grid cells.
@@ -40,6 +34,47 @@ def compute_fcontO(mmO, sheetname):
     # Convert O <- I
     fcontOp = sO * OvI.apply(fcontI, 0.)
     fcontOp = np.round(fcontOp, decimals=12)   # Why this?  Try without...
+
+    return fcontOp
+
+def compute_fcontO(mmO, sheetname):
+    """Computes Continent land fractions, based on a single ice sheet.
+    This prototype code will likely be converted to C++"""
+
+    # ----------------------------------------------------------------
+    # Create a special regridder with elevI set according to the
+    # ice+land mask, instead of the default ice mask.  This allows
+    # us to compute fcont (instead of fgice)
+
+    #     See pism/src/base/util/Mask.hh
+    #     enum MaskValue {
+    #       MASK_UNKNOWN          = -1,
+    #       MASK_ICE_FREE_BEDROCK = 0,
+    #       MASK_GROUNDED         = 2,
+    #       MASK_FLOATING         = 3,
+    #       MASK_ICE_FREE_OCEAN   = 4
+    #     };
+    with netCDF4.Dataset(args.elev_mask) as nc:
+        maskI = np.array(nc.variables['mask'][:], dtype=np.int32)[0,:,:]
+        maskI = np.where(
+            np.logical_or(maskI==2,maskI==3,maskI==0),np.int32(0),np.int32(1)).reshape(-1)
+        thkI = nc.variables['thk'][:].reshape(-1)
+        topgI = nc.variables['topg'][:].reshape(-1)
+    elevI = thkI + topgI
+    elevI[~maskI] = np.nan
+
+    mmO = icebin.GCMRegridder(args.icebin_in)
+    mmO.set_elevI(sheetname, elevI)
+    # ----------------------------------------------------------------
+
+    rmO = mmO.regrid_matrices(sheetname)
+
+    # Regrid to fxoceanOp  (PISM fcont)
+    OvI = rmO.matrix('AvI', scale=False, correctA=False)    # WeightedSparse
+    OvI_correct = rmO.matrix('AvI', scale=False, correctA=True)
+
+
+    fcontOp = get_fcontOp(mmO, OvI)
 
     # Round fcontOp (PISM) to get fcontOm (ModelE)
     fcontOm = np.round(fcontOp)
@@ -91,7 +126,7 @@ class MismatchTests(unittest.TestCase):
             yield nc
 
 
-    def test_weight_sums(self):
+    def xtest_weight_sums(self):
 
         rmA = self.mmA.regrid_matrices(self.sheetname)
         wAAm, AAmvIp, wIp = rmA.matrix('AAmvIp', scale=True, correctA=False)()
@@ -106,17 +141,22 @@ class MismatchTests(unittest.TestCase):
         wOvI_correct,_,_ = OvI_correct()
         # -----------------------------
 
+        # Calculate fgiceOm from fgiceOp, fcontOp, fcontOm
+        fgiceOp = get_fcontOp(self.mmO, OvI)
+        fgiceOm = self.fcontOm * (fgiceOp / self.fcontOp)
+        fgiceOm[np.isnan(fgiceOm)] = 0.
+
         sum_wIp = np.nansum(wIp)
         sum_wOvI = np.nansum(wOvI)
         sum_wOvI_correct = np.nansum(wOvI_correct)
         sum_wAAm = np.nansum(wAAm)
-        sum_fcontOp = np.sum(self.fcontOp * self.areaA1)
-        sum_fcontOm = np.sum(self.fcontOm * self.areaA1)
+        sum_fgiceOp = np.sum(fgiceOp * self.areaA1)
+        sum_fgiceOm = np.sum(fgiceOm * self.areaA1)
 
         self.assertAlmostEqual(1.0, sum_wIp / sum(self.wI))
         self.assertAlmostEqual(1.0, sum_wIp / sum_wOvI)
-        self.assertAlmostEqual(1.0, sum_wOvI_correct / sum_fcontOp)
-        self.assertAlmostEqual(1.0, sum_wAAm / sum_fcontOm)
+        self.assertAlmostEqual(1.0, sum_wOvI_correct / sum_fgiceOp)
+        self.assertAlmostEqual(1.0, sum_wAAm / sum_fgiceOm)
                 
 
 
@@ -153,24 +193,38 @@ class MismatchTests(unittest.TestCase):
         """Tests conservation of mass.  Checks that the amount of
         stuff (== value * weight) remains constant."""
 
+
+        # Indices we worry about (i + j*144)
+        ixs = [50 + 80*144, 46 + 82*144, 57 + 86*144]
+
+
         rmA = self.mmA.regrid_matrices(self.sheetname)
-        AAmvIp = rmA.matrix('AAmvIp', scale=True)
+        AAmvIp = rmA.matrix('AAmvIp', scale=True, correctA=False)
         wAAm,_,wIp = AAmvIp()
 
         for fname,valIp_fn in (('mismatch_diagonal', self.diagonalI),):
             valIp = valIp_fn()
 
             # A <--> I
-            valAAmIp = AAmvIp.apply(valIp, fill=np.nan, force_conservation=False)
+            valAAmIp = AAmvIp.apply(valIp, fill=np.nan, force_conservation=True)
+
+
+            print('ZR valAAmIp', valAAmIp[ixs])
+            print('ZR wAAm', wAAm[ixs])
+            print('ZR sum', np.nansum(wAAm * valAAmIp), np.nansum(wIp * valIp))
+
+#            valAAmIp /= wAAm
 #            self.assert_eq_weighted(valIp, wIp, valAAmIp, wAAm)
+
 
             with self.new_nc(fname + '.nc') as nc:
                 valIp_nc = nc.createVariable('valIp', 'd', ('nx', 'ny'))
-                valAAmIp_nc = nc.createVariable('wAAmIp', 'd', ('jmA', 'imA'))
+                wAAm_nc = nc.createVariable('wAAm', 'd', ('jmA', 'imA'))
+                valAAmIp_nc = nc.createVariable('valAAmIp', 'd', ('jmA', 'imA'))
 
                 valIp_nc[:] = valIp[:]
+                wAAm_nc[:] = wAAm[:]
                 valAAmIp_nc[:] = valAAmIp[:]
-
 
 
 
