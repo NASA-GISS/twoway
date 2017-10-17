@@ -113,6 +113,19 @@ class MismatchTests(unittest.TestCase):
         # Construct a GCMRegridder_Model to/from the Atmosphere Grid
         self.mmA = self.mmO.to_modele(1.-self.fcontOp, 1.-self.fcontOm)
 
+
+    def assert_equal_np(self, A, B):
+        for ix,(a,b) in enumerate(zip(A,B)):
+            ratio = a/b
+            if not np.isnan(ratio):
+                try:
+                    self.assertAlmostEqual(1.,ratio, msg='ix={}'.format(ix))
+                    pass
+                except:
+                    print('A={}, B={}'.format(a,b))
+                    raise
+
+
     @contextlib.contextmanager
     def new_nc(self, fname):
         with netCDF4.Dataset(fname, 'w') as nc:
@@ -122,6 +135,7 @@ class MismatchTests(unittest.TestCase):
             nc.createDimension('ny', self.indexingI.shape[1])
             nc.createDimension('jmA', self.indexingA.shape[0]/2)
             nc.createDimension('imA', self.indexingA.shape[1]/2)
+            nc.createDimension('nhc', self.nhc)
 
             yield nc
 
@@ -173,7 +187,9 @@ class MismatchTests(unittest.TestCase):
             wAAm_nc[:] = wAAm[:]
 
     # -----------------------------------------------------
+    # -----------------------------------------------------
     # Sample functions
+
     def diagonalI(self):
         shapeI = self.indexingI.shape
         valI = np.zeros(shapeI)
@@ -181,6 +197,21 @@ class MismatchTests(unittest.TestCase):
             for j in range(0,shapeI[1]):
                 valI[i,j] = i + j
         return valI.reshape(-1)
+
+    def constantI(self):
+        valI = np.zeros(self.indexingI.shape) + 1
+        return valI.reshape(-1)
+
+    def elevationI(self):
+        with netCDF4.Dataset(args.elev_mask) as nc:
+            maskI = np.array(nc.variables['mask'][:], dtype=np.int32)[0,:,:]
+            maskI = np.where(
+                np.logical_or(maskI==2,maskI==3,maskI==0),np.int32(0),np.int32(1)).reshape(-1)
+            thkI = nc.variables['thk'][:].reshape(-1)
+            topgI = nc.variables['topg'][:].reshape(-1)
+        elevI = thkI + topgI
+        elevI[~maskI] = np.nan
+        return elevI
     # -----------------------------------------------------
 
     def assert_eq_weighted(self, A, wA, B, wB):
@@ -202,29 +233,51 @@ class MismatchTests(unittest.TestCase):
         AAmvIp = rmA.matrix('AAmvIp', scale=True, correctA=False)
         wAAm,_,wIp = AAmvIp()
 
-        for fname,valIp_fn in (('mismatch_diagonal', self.diagonalI),):
+        EAmvIp = rmA.matrix('EAmvIp', scale=True, correctA=False)
+        wEAm,M,wIp2 = EAmvIp()
+
+        # Total area of grid cells; should be approximately the same
+        print('wIp', np.nansum(wIp))
+        print('wAAm', np.nansum(wAAm))
+        print('wEAm', np.nansum(wEAm))
+
+        self.assertAlmostEqual(1., np.nansum(wEAm) / np.nansum(wAAm));
+        self.assert_equal_np(wIp, wIp2)
+
+
+        for fname,valIp_fn in (('diagonal', self.diagonalI), ('constant', self.constantI), ('elevation', self.elevationI)):
             valIp = valIp_fn()
 
             # A <--> I
             valAAmIp = AAmvIp.apply(valIp, fill=np.nan, force_conservation=True)
+            self.assertAlmostEqual(1.0, np.nansum(wAAm * valAAmIp) / np.nansum(wIp * valIp))
 
 
-            print('ZR valAAmIp', valAAmIp[ixs])
-            print('ZR wAAm', wAAm[ixs])
-            print('ZR sum', np.nansum(wAAm * valAAmIp), np.nansum(wIp * valIp))
+            # E <--> I
+            valEAmIp = EAmvIp.apply(valIp, fill=np.nan, force_conservation=True)
+            print('valEAmIp', np.nansum(wEAm * valEAmIp), np.nansum(wIp * valIp))
+            self.assertAlmostEqual(1.0, np.nansum(wEAm * valEAmIp) / np.nansum(wIp * valIp))
+
+#            print('ZR valAAmIp', valAAmIp[ixs])
+#            print('ZR wAAm', wAAm[ixs])
+#            print('ZR sum', np.nansum(wAAm * valAAmIp), np.nansum(wIp * valIp))
 
 #            valAAmIp /= wAAm
 #            self.assert_eq_weighted(valIp, wIp, valAAmIp, wAAm)
 
 
-            with self.new_nc(fname + '.nc') as nc:
+            with self.new_nc('mismatch_' + fname + '.nc') as nc:
                 valIp_nc = nc.createVariable('valIp', 'd', ('nx', 'ny'))
                 wAAm_nc = nc.createVariable('wAAm', 'd', ('jmA', 'imA'))
+                wEAm_nc = nc.createVariable('wEAm', 'd', ('nhc', 'jmA', 'imA'))
                 valAAmIp_nc = nc.createVariable('valAAmIp', 'd', ('jmA', 'imA'))
+                valEAmIp_nc = nc.createVariable('valEAmIp', 'd', ('nhc', 'jmA', 'imA'))
 
                 valIp_nc[:] = valIp[:]
                 wAAm_nc[:] = wAAm[:]
+                wEAm_nc[:] = wEAm[:]
                 valAAmIp_nc[:] = valAAmIp[:]
+                valEAmIp_nc[:] = valEAmIp[:]
 
 
 
