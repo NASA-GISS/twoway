@@ -236,10 +236,13 @@ class MismatchTests(unittest.TestCase):
         EAmvIp = rmA.matrix('EAmvIp', scale=True, correctA=False)
         wEAm,M,wIp2 = EAmvIp()
 
+        AAmvEAm = rmA.matrix('AAmvEAm', scale=True, correctA=False)
+        wAAm2,M,wEAm2 = AAmvEAm()
+
         # Total area of grid cells; should be approximately the same
         print('wIp', np.nansum(wIp))
-        print('wAAm', np.nansum(wAAm))
-        print('wEAm', np.nansum(wEAm))
+        print('wAAm', np.nansum(wAAm), np.nansum(wAAm2))
+        print('wEAm', np.nansum(wEAm), np.nansum(wEAm2))
 
         self.assertAlmostEqual(1., np.nansum(wEAm) / np.nansum(wAAm));
         self.assert_equal_np(wIp, wIp2)
@@ -248,15 +251,18 @@ class MismatchTests(unittest.TestCase):
         for fname,valIp_fn in (('diagonal', self.diagonalI), ('constant', self.constantI), ('elevation', self.elevationI)):
             valIp = valIp_fn()
 
-            # A <--> I
+            # A <-- I
             valAAmIp = AAmvIp.apply(valIp, fill=np.nan, force_conservation=True)
             self.assertAlmostEqual(1.0, np.nansum(wAAm * valAAmIp) / np.nansum(wIp * valIp))
 
-
-            # E <--> I
+            # E <-- I
             valEAmIp = EAmvIp.apply(valIp, fill=np.nan, force_conservation=True)
             print('valEAmIp', np.nansum(wEAm * valEAmIp), np.nansum(wIp * valIp))
             self.assertAlmostEqual(1.0, np.nansum(wEAm * valEAmIp) / np.nansum(wIp * valIp))
+            # A <-- E
+            valAAmEAmIp = AAmvEAm.apply(valEAmIp, fill=np.nan, force_conservation=True)
+            print('valAAmEAmIp', np.nansum(wAAm * valAAmEAmIp), np.nansum(wIp * valIp))
+
 
 #            print('ZR valAAmIp', valAAmIp[ixs])
 #            print('ZR wAAm', wAAm[ixs])
@@ -272,12 +278,15 @@ class MismatchTests(unittest.TestCase):
                 wEAm_nc = nc.createVariable('wEAm', 'd', ('nhc', 'jmA', 'imA'))
                 valAAmIp_nc = nc.createVariable('valAAmIp', 'd', ('jmA', 'imA'))
                 valEAmIp_nc = nc.createVariable('valEAmIp', 'd', ('nhc', 'jmA', 'imA'))
+                valAAmEAmIp_nc = nc.createVariable('valAAmEAmIp', 'd', ('jmA', 'imA'))
 
                 valIp_nc[:] = valIp[:]
                 wAAm_nc[:] = wAAm[:]
                 wEAm_nc[:] = wEAm[:]
                 valAAmIp_nc[:] = valAAmIp[:]
                 valEAmIp_nc[:] = valEAmIp[:]
+                valEAmIp_nc[:] = valEAmIp[:]
+                valAAmEAmIp_nc[:] = valAAmEAmIp[:]
 
 
 
