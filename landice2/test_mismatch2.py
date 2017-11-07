@@ -71,7 +71,7 @@ def compute_fcontO(mmO, sheetname):
 
     # Regrid to fxoceanOp  (PISM fcont)
     OvI = rmO.matrix('AvI', scale=False, correctA=False)    # WeightedSparse
-    OvI_correct = rmO.matrix('AvI', scale=False, correctA=True)
+#    OvI_correct = rmO.matrix('AvI', scale=False, correctA=True)
 
 
     fcontOp = get_fcontOp(mmO, OvI)
@@ -229,26 +229,36 @@ class MismatchTests(unittest.TestCase):
         ixs = [50 + 80*144, 46 + 82*144, 57 + 86*144]
 
 
+        kwargs = dict(sigma=(50000., 50000., 100.),scale=True, correctA=False)
+
+
         rmA = self.mmA.regrid_matrices(self.sheetname)
-        AAmvIp = rmA.matrix('AAmvIp', scale=True, correctA=False)
+        AAmvIp = rmA.matrix('AAmvIp', **kwargs)
         wAAm,_,wIp = AAmvIp()
 
-        EAmvIp = rmA.matrix('EAmvIp', scale=True, correctA=False)
+        EAmvIp = rmA.matrix('EAmvIp', **kwargs)
         wEAm,M,wIp2 = EAmvIp()
 
-        AAmvEAm = rmA.matrix('AAmvEAm', scale=True, correctA=False)
+        AAmvEAm = rmA.matrix('AAmvEAm', **kwargs)
         wAAm2,M,wEAm2 = AAmvEAm()
 
+        IpvAAm = rmA.matrix('IpvAAm', **kwargs)
+        wIp3,_,wAAm3 = IpvAAm()
+
+        IpvEAm = rmA.matrix('IpvEAm', **kwargs)
+        wIp4,_,wEAm3 = IpvEAm()
+
         # Total area of grid cells; should be approximately the same
-        print('wIp', np.nansum(wIp))
-        print('wAAm', np.nansum(wAAm), np.nansum(wAAm2))
-        print('wEAm', np.nansum(wEAm), np.nansum(wEAm2))
+        print('wIp', np.nansum(wIp), np.nansum(wIp3), np.nansum(wIp4))
+        print('wAAm', np.nansum(wAAm), np.nansum(wAAm2), np.nansum(wAAm3))
+        print('wEAm', np.nansum(wEAm), np.nansum(wEAm2), np.nansum(wEAm3))
 
         self.assertAlmostEqual(1., np.nansum(wEAm) / np.nansum(wAAm));
         self.assert_equal_np(wIp, wIp2)
 
 
         for fname,valIp_fn in (('diagonal', self.diagonalI), ('constant', self.constantI), ('elevation', self.elevationI)):
+            print('============================== {}'.format(fname))
             valIp = valIp_fn()
 
             # A <-- I
@@ -262,6 +272,13 @@ class MismatchTests(unittest.TestCase):
             # A <-- E
             valAAmEAmIp = AAmvEAm.apply(valEAmIp, fill=np.nan, force_conservation=True)
             print('valAAmEAmIp', np.nansum(wAAm * valAAmEAmIp), np.nansum(wIp * valIp))
+
+
+            # I <-- A/E
+            valIpAAmIp = IpvAAm.apply(valAAmIp, fill=np.nan, force_conservation=True)
+            print('valIpAAmIp', np.nansum(wIp * valIpAAmIp), np.nansum(wIp * valIp))
+            valIpEAmIp = IpvEAm.apply(valEAmIp, fill=np.nan, force_conservation=True)
+            print('valIpEAmIp', np.nansum(wIp * valIpEAmIp), np.nansum(wIp * valIp))
 
 
 #            print('ZR valAAmIp', valAAmIp[ixs])
@@ -279,14 +296,19 @@ class MismatchTests(unittest.TestCase):
                 valAAmIp_nc = nc.createVariable('valAAmIp', 'd', ('jmA', 'imA'))
                 valEAmIp_nc = nc.createVariable('valEAmIp', 'd', ('nhc', 'jmA', 'imA'))
                 valAAmEAmIp_nc = nc.createVariable('valAAmEAmIp', 'd', ('jmA', 'imA'))
+                valIpAAmIp_nc = nc.createVariable('valIpAAmIp', 'd', ('nx', 'ny'))
+                valIpEAmIp_nc = nc.createVariable('valIpEAmIp', 'd', ('nx', 'ny'))
+
+
 
                 valIp_nc[:] = valIp[:]
                 wAAm_nc[:] = wAAm[:]
                 wEAm_nc[:] = wEAm[:]
                 valAAmIp_nc[:] = valAAmIp[:]
                 valEAmIp_nc[:] = valEAmIp[:]
-                valEAmIp_nc[:] = valEAmIp[:]
                 valAAmEAmIp_nc[:] = valAAmEAmIp[:]
+                valIpAAmIp_nc[:] = valIpAAmIp[:]
+                valIpEAmIp_nc[:] = valIpEAmIp[:]
 
 
 
