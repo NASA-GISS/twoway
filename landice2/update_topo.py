@@ -29,8 +29,10 @@ with netCDF4.Dataset(ICEBINO_IN) as nc:
     hcdefs_ice = nc.variables['m.hcdefs'][:]
     nhc_ice = len(nc.dimensions['m.nhc'])
 
-im = indexingO.extent[0] // 2    # Indices in alphabetical order
-jm = indexingO.extent[1] // 2    # /2 to convert Ocean to Atmosphere grid
+imO = indexingO.extent[0]
+jmO = indexingO.extent[1]
+im = imO // 2    # Indices in alphabetical order
+jm = jmO // 2    # /2 to convert Ocean to Atmosphere grid
 
 segments = 'legacy,sealand,ec'
 nhc_gcm = nhc_ice + 3
@@ -52,7 +54,7 @@ flake = np.zeros((jm,im), dtype='d')
 fgrnd = np.zeros((jm,im), dtype='d')
 fgice = np.zeros((jm,im), dtype='d')
 zatmo = np.zeros((jm,im), dtype='d')
-foceanOm0 = np.zeros((jm,im), dtype='d')
+foceanOm0 = np.zeros((jmO,imO), dtype='d')
 
 # ---------------------------------------------------------
 with netCDF4.Dataset(ELEVMASK_IN) as nc:
@@ -65,29 +67,29 @@ elevI = topgI + thkI
 sigma = (50000., 50000., 1000.)
 elevmask_sigmas = {'greenland' : (elevI, maskI, sigma)}
 mmA.update_topo(
-    TOPOO_IN, elevmask_sigmas, False,
-    segments,
+    TOPOO_IN, elevmask_sigmas, True,
+    segments, 'ec',
     fhc, underice, elevE,
     focean, flake, fgrnd, fgice, zatmo, foceanOm0)
-
-
 # ---------------------------------------------------------
 
 with netCDF4.Dataset('TOPOA.nc', 'w') as nc:
-    nc.createDimension('nhc', nhc_gcm)
+    nc.createDimension('nhc_gcm', nhc_gcm)
     nc.createDimension('jm', jm)
     nc.createDimension('im', im)
+    nc.createDimension('jmO', jmO)
+    nc.createDimension('imO', imO)
 
-    fhc_v = nc.createVariable('fhc', 'd', (nhc_gcm,jm,im), zlib=True)
-    underice_v = nc.createVariable('underice', 'i', (nhc_gcm,jm,im), zlib=True)
-    elevE_v = nc.createVariable('elevE', 'd', (nhc_gcm,jm,im), zlib=True)
+    fhc_v = nc.createVariable('fhc', 'd', ('nhc_gcm','jm','im'), zlib=True)
+    underice_v = nc.createVariable('underice', 'i', ('nhc_gcm','jm','im'), zlib=True)
+    elevE_v = nc.createVariable('elevE', 'd', ('nhc_gcm','jm','im'), zlib=True)
 
-    focean_v = nc.createVariable('focean', 'd', (jm,im), zlib=True)
-    flake_v = nc.createVariable('flake', 'd', (jm,im), zlib=True)
-    fgrnd_v = nc.createVariable('fgrnd', 'd', (jm,im), zlib=True)
-    fgice_v = nc.createVariable('fgice', 'd', (jm,im), zlib=True)
-    zatmo_v = nc.createVariable('zatmo', 'd', (jm,im), zlib=True)
-    foceanOm0_v = nc.createVariable('foceanOm0', 'd', (jm,im), zlib=True)
+    focean_v = nc.createVariable('focean', 'd', ('jm','im'), zlib=True)
+    flake_v = nc.createVariable('flake', 'd', ('jm','im'), zlib=True)
+    fgrnd_v = nc.createVariable('fgrnd', 'd', ('jm','im'), zlib=True)
+    fgice_v = nc.createVariable('fgice', 'd', ('jm','im'), zlib=True)
+    zatmo_v = nc.createVariable('zatmo', 'd', ('jm','im'), zlib=True)
+    foceanOm0_v = nc.createVariable('foceanOm0', 'd', ('jmO','imO'), zlib=True)
 
 
     fhc_v[:] = fhc
