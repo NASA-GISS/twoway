@@ -43,7 +43,9 @@ def make_icebin_in_base(grid_dir, gridA_name, gridI_name, pism_spinup_fname, ofn
     # ========== Set up gridA and height points
     gridA_fname = os.path.join(grid_dir, gridA_name + '.nc')
     hpdefs = np.array(range(0,20))*200.0 - 100.0
+    print('BEGIN read {}'.format(gridA_fname))
     mm = icebin.GCMRegridder(gridA_fname, 'grid', hpdefs, True)
+    print('END read {}'.format(gridA_fname))
 
 
     # ========= Add each Ice Sheet
@@ -60,8 +62,8 @@ def make_icebin_in_base(grid_dir, gridA_name, gridI_name, pism_spinup_fname, ofn
     mm.add_sheet('greenland',
         gridI_fname, 'grid',
         overlap_fname, 'exgrid',
-        'Z_INTERP',
-        elevI, maskI)
+        'Z_INTERP')
+#        elevI, maskI)
 
     # ========== Finish up and write out
     print('Writing: {}'.format(ofname))
