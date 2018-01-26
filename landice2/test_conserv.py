@@ -65,11 +65,11 @@ class RegridTests(unittest.TestCase):
         self.IvE_smooth_x = self.rm.matrix('IvE', scale=True, sigma=sigma)
 
         with netCDF4.Dataset(ICEBIN_IN) as nc:
-            self.indexingA = ibgrid.Indexing(nc, 'm.gridA.indexing')
+            self.indexingA = ibgrid.Indexing(nc, 'm.agridA.indexing')
             self.indexingHC = ibgrid.Indexing(nc, 'm.indexingHC')
-            self.indexingI = ibgrid.Indexing(nc, 'm.{}.gridI.indexing'.format(ice_sheet))
-            self.plotterI = ibplotter.read_nc(nc, 'm.{}.gridI'.format(ice_sheet))
-            self.plotterA = ibplotter.read_nc(nc, 'm.gridA')
+            self.indexingI = ibgrid.Indexing(nc, 'm.{}.agridI.indexing'.format(ice_sheet))
+            self.plotterI = ibplotter.read_nc(nc, 'm.{}.agridI'.format(ice_sheet))
+            self.plotterA = ibplotter.read_nc(nc, 'm.agridA')
         self.plotterE = ibplotter.PlotterE(ICEBIN_IN, ice_sheet, IvE=self.IvE)
 
         self.elevI, self.maskI = giss.pism.read_elevI_maskI(ELEV_MASK)
