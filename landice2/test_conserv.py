@@ -48,8 +48,12 @@ class RegridTests(unittest.TestCase):
 
     def setUp(self):
         print('BEGIN RegridTests.setUp(): ', ICEBIN_IN)
+        self.elevI, self.maskI = giss.pism.read_elevI_maskI(ELEV_MASK)
+        self.elevmaskI = self.elevI
+        self.elevmaskI[self.maskI] = np.nan
+
         self.mm = icebin.GCMRegridder(ICEBIN_IN)
-        self.rm = self.mm.regrid_matrices(ice_sheet)
+        self.rm = self.mm.regrid_matrices(ice_sheet, self.elevmaskI)
 		# Smooth 50km in XY direction, 100m in Z direction
         sigma=(50000., 50000., 100.)
         self.wIvE,self.IvE,self.IvEw = self.rm.matrix('IvE', scale=True, sigma=sigma)()
@@ -72,7 +76,6 @@ class RegridTests(unittest.TestCase):
             self.plotterA = ibplotter.read_nc(nc, 'm.agridA')
         self.plotterE = ibplotter.PlotterE(ICEBIN_IN, ice_sheet, IvE=self.IvE)
 
-        self.elevI, self.maskI = giss.pism.read_elevI_maskI(ELEV_MASK)
         print('END RegridTests.setUp()')
 
 

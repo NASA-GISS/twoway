@@ -34,7 +34,6 @@ Z2MX2M_NGDC = $(shell ./searchenv Z2MX2M.NGDC MODELE_FILE_PATH)
 Z2MX2M.NGDC.nc: $(Z2MX2M_NGDC)
 	giss2nc $(Z2MX2M_NGDC) Z2MX2M.NGDC.nc --endian=big --names=FOCEN2,ZETOP2
 
-
 Z10MX10M = $(shell ./searchenv Z10MX10M MODELE_FILE_PATH)
 Z10MX10M.nc: $(Z10MX10M)
 	giss2nc $(Z10MX10M) Z10MX10M.nc --endian=big --names=_,FLAKES
@@ -59,7 +58,42 @@ z1qx1n_bs1-nogr.nc :
 z1qx1n_bs1-onlygr.nc : z1qx1n_bs1-withgr.nc z1qx1n_bs1-nogr.nc
 	python3 make_legacy_greenland.py z1qx1n_bs1
 
-# ----------------------------------------------------------
+#  ===========================================
+# ETOPO1
+
+ZETOPO1_NCEI = $(shell ./searchenv ZETOPO1.NCEI MODELE_FILE_PATH)
+ZETOPO1.NCEI.nc : $(ZETOPO1_NCEI)
+	giss2nc $(ZETOPO1_NCEI) ZETOPO1.NCEI.nc --endian=big --names=FOCEAN,ZICTOP,ZSOLID --type=int16
+
+# ---------------------------------------------
+# Create gmask1m.cdl, which is checked into the Git Repo
+# Create an image the user can edit
+focean1m.png : ZETOPO1.NCEI.nc
+	python3 etopo1_to_focean1m_png.py
+
+# User edits focean1m.png, putting color=2 (white) over Greenland
+# area.  It can cover ocean area as well, but NOT other land.
+# Contains continents, plus a mask=2 over Greenland
+focean1m_gmask_0.png : focean1m.png
+	echo '**** User must edit focean1m.png, then save as focean1m_gmask_0.png'
+	ls $@
+
+# Contains just gridcells where mask==2, compressed
+gmask1m_0.nc : focean1m_gmask_0.png
+	python3 make_gmask1m_0.py
+
+gmask1m.cdl : gmask1m_0.nc
+	ncdump -l 10 gmask1m_0.nc >gmask1m.cdl
+# ---------------------------------------------
+
+gmask1m.nc : # gmask1m.cdl   This is assumed to be part of the git repo
+	ncgen -o gmask1m.nc gmask1m.cdl
+
+# Regenerate with continents + mask, so we can see it!
+focean1m_gmask.png ZETOPO1.NCEI-SeparateGreenland.nc : ZETOPO1.NCEI.nc gmask1m.nc
+	python3 regenerate_focean1_gmask.py
+
+# Make modified ETOPO1 NetCDF file
 
 
 

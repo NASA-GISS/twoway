@@ -109,3 +109,8 @@ install:
 #	$(PYTHON3) install.py Z2HX2fromZ1QX1N_EC2-sealand.nc $(HOME)/modele_input/local
 #	$(PYTHON3) install.py Z2HX2fromZ1QX1N_EC2-ec.nc $(HOME)/modele_input/local
 #	$(PYTHON3) install.py GIC.144X90.DEC01.1.ext_1_EC2.nc $(HOME)/modele_input/local
+
+
+
+# Convert ETOPO1 file to NetCDF
+# giss2nc --names FOCEAN --endian=big --input-file ZETOPO1.NCEI --output-file ZETOPO1.NCEI.nc &
