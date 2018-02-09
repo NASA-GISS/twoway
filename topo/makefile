@@ -36,7 +36,7 @@ Z2MX2M.NGDC.nc: $(Z2MX2M_NGDC)
 
 Z10MX10M = $(shell ./searchenv Z10MX10M MODELE_FILE_PATH)
 Z10MX10M.nc: $(Z10MX10M)
-	giss2nc $(Z10MX10M) Z10MX10M.nc --endian=big --names=_,FLAKES
+	giss2nc $(Z10MX10M) Z10MX10M.nc --endian=big --names=FOCEANS,FLAKES,FLANDS,dZOCENs,ZONTS
 
 ZICEHXH = $(shell ./searchenv ZICEHXH MODELE_FILE_PATH)
 ZICEHXH.nc: $(ZICEHXH)
@@ -89,13 +89,21 @@ gmask1m.cdl : gmask1m_0.nc
 gmask1m.nc : # gmask1m.cdl   This is assumed to be part of the git repo
 	ncgen -o gmask1m.nc gmask1m.cdl
 
-# Regenerate with continents + mask, so we can see it!
+# Make modified ETOPO1 NetCDF file
 focean1m_gmask.png ZETOPO1.NCEI-SeparateGreenland.nc : ZETOPO1.NCEI.nc gmask1m.nc
 	python3 regenerate_focean1_gmask.py
 
-# Make modified ETOPO1 NetCDF file
+# ------------------------------------------------
+# Generate global map of 1-minute ice, ocean mask, elevation
+# This is used to generate elevation classes and ModelE TOPO files
+#ZETOPO1.NCEI-SeparateGreenland.nc
 
+# With Greenland
+etopo1_ice_g1m.nc : ZETOPO1.NCEI-SeparateGreenland.nc
+	etopo1_ice -g etopo1_ice_g
 
+g1qx1-etopo1_ice_g1m.nc : etopo1_ice_g1m.nc
+	overlap_hntr g1qx1 g1mx1m etopo1_ice_g1m.nc -o g1qx1-etopo1_ice_g1m.nc
 
 #giss2nc $DIR/Z10MX10M Z10MX10M.nc --endian=big \
 #	--names=_,FLAKES
