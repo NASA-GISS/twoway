@@ -48,6 +48,18 @@ ZNGDC1.nc: $(ZNGDC1)
 
 
 # ------------------------------------------------------------------
+# Gary's classic Fortran TOPO generator
+
+Z :
+	ln -s $HOME/modele_input/origin Z
+
+Z1QX1N.BS1 : Z
+	IC=. make_topo_f
+
+Z1QX1N.BS1.nc : Z1QX1N.BS1
+	giss2nc Z1QX1N.BS1 Z1QX1N.BS1.nc
+
+# ------------------------------------------------------------------
 # Construct TOPO file, separating out Greenland
 z1qx1n_bs1-withgr.nc :
 	make_topo --greenland z1qx1n_bs1-withgr.nc
