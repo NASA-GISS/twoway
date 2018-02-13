@@ -117,6 +117,11 @@ etopo1_ice_g1m.nc : ZETOPO1.NCEI-SeparateGreenland.nc
 g1qx1-etopo1_ice_g1m.nc : etopo1_ice_g1m.nc
 	overlap_hntr g1qx1 g1mx1m etopo1_ice_g1m.nc -o g1qx1-etopo1_ice_g1m.nc
 
+
+# ----------------------------------------------
+topoo.nc : etopo1_ice_g1m.nc
+	make_topoo topoo.nc >topoo.out 2>topoo.err
+
 #giss2nc $DIR/Z10MX10M Z10MX10M.nc --endian=big \
 #	--names=_,FLAKES
 #
