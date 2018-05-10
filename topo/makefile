@@ -102,6 +102,7 @@ gmask1m.nc : # gmask1m.cdl   This is assumed to be part of the git repo
 	ncgen -o gmask1m.nc gmask1m.cdl
 
 # Make modified ETOPO1 NetCDF file
+# This also "converts" from grid-registered to pixel-registered ETOPO1
 focean1m_gmask.png ZETOPO1.NCEI-SeparateGreenland.nc : ZETOPO1.NCEI.nc gmask1m.nc
 	python3 regenerate_focean1_gmask.py
 
@@ -111,16 +112,37 @@ focean1m_gmask.png ZETOPO1.NCEI-SeparateGreenland.nc : ZETOPO1.NCEI.nc gmask1m.n
 #ZETOPO1.NCEI-SeparateGreenland.nc
 
 # With Greenland
-etopo1_ice_g1m.nc : ZETOPO1.NCEI-SeparateGreenland.nc
+etopo1_ice_g1m.nc : ZETOPO1.NCEI-SeparateGreenland.nc ZNGDC1.nc
 	etopo1_ice -g etopo1_ice_g
 
-g1qx1-etopo1_ice_g1m.nc : etopo1_ice_g1m.nc
-	overlap_hntr g1qx1 g1mx1m etopo1_ice_g1m.nc -o g1qx1-etopo1_ice_g1m.nc
+#g1qx1-etopo1_ice_g1m.nc : etopo1_ice_g1m.nc
+#	overlap_hntr g1qx1 g1mx1m etopo1_ice_g1m.nc -o g1qx1-etopo1_ice_g1m.nc
 
 
 # ----------------------------------------------
 topoo.nc : etopo1_ice_g1m.nc
 	make_topoo topoo.nc >topoo.out 2>topoo.err
+
+# The six regridding matrices (compressed) for global ice
+global_ec.nc.mk : topoo.nc etopo1_ice_g1m.nc
+	global_ec g1qx1 g1mx1m ghxh etopo1_ice_g1m.nc topoo.nc -o global_ec.nc
+
+global_ec.nc : global_ec.nc.mk
+	make -f global_ec.nc.mk
+
+# The six regridding matrices (compressed) for global ice, with mismatched regridding
+global_ec_mm.nc.mk : topoo.nc etopo1_ice_g1m.nc
+	global_ec g1qx1 g1mx1m ghxh etopo1_ice_g1m.nc topoo.nc --mismatched -o global_ec_mm.nc
+
+global_ec_mm.nc : global_ec_mm.nc.mk
+	make -f global_ec_mm.nc.mk
+
+# ---------------------------------------------------
+
+topoa.nc : global_ec_mm.nc topoo.nc
+	make_topoa -o topoa.nc --global_ec_mm global_ec_mm.nc --topoo topoo.nc
+
+
 
 #giss2nc $DIR/Z10MX10M Z10MX10M.nc --endian=big \
 #	--names=_,FLAKES

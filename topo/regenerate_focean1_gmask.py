@@ -36,13 +36,30 @@ focean1m1[gindices] = 2
 # ------------------------------------------------------
 # Generate the NC file
 print('Creating {}'.format(oncname))
-shutil.copyfile(incname, oncname)
-print('Updating {}'.format(oncname))
-with netCDF4.Dataset(oncname, 'a') as nc:
-    ncvar = nc.variables['FOCEAN']
-    fo2 = ncvar[:]
-    fo2[np.logical_and(focean1m==2, fo2==0)] = 2
-    ncvar[:] = fo2
+with netCDF4.Dataset(incname, 'r') as ncin:
+    with netCDF4.Dataset(oncname, 'w') as ncout:
+
+        first = True
+        for vname in ('FOCEAN', 'ZICTOP', 'ZSOLID'):
+            val1m_gridreg = ncin.variables[vname][:]
+
+            # Convert grid-registered to pixel-registerd
+            # We can fudge that by just dropping the last point
+            # 1-minute is so small it won't make much difference for global
+            # (The first row at the south pole has problems.  The last
+            # row at the north pole does not.)
+            val1m = val1m_gridreg[1:,:]
+
+            # Create new dimensions
+            if first:
+                jm1m_d = ncout.createDimension('jm1m', size=val1m.shape[0])
+                im1m_d = ncout.createDimension('im1m', size=val1m.shape[1])
+
+            # Create variable
+            ncvar = ncout.createVariable(vname, 'd', ('jm1m', 'im1m'))
+            ncvar[:] = val1m[:]
+
+            first = False
 
 # ------------------------------------------------------
 # Generate the PNG file
