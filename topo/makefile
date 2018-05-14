@@ -139,10 +139,11 @@ global_ec_mm.nc : global_ec_mm.nc.mk
 
 # ---------------------------------------------------
 
-topoa.nc : global_ec_mm.nc topoo.nc
-	make_topoa -o topoa.nc --global_ec_mm global_ec_mm.nc --topoo topoo.nc
+topoa_nc4.nc : global_ec_mm.nc topoo.nc
+	make_topoa -o topoa_nc4.nc --global_ec_mm global_ec_mm.nc --topoo topoo.nc
 
-
+topoa.nc : topoa_nc4.nc
+	nccopy -k classic topoa_nc4.nc topoa.nc
 
 #giss2nc $DIR/Z10MX10M Z10MX10M.nc --endian=big \
 #	--names=_,FLAKES
