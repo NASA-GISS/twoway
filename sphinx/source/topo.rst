@@ -105,6 +105,8 @@ file:
 
 .. image:: ecusage.png
 
+(figure courtesy Gavin Schmidt)
+
 Every elevation class at every grid cell may be enabled or disabled.
 Elevation classes with ``fhc(ihc,j,i)==0`` are disabled; all others
 are enabled.
