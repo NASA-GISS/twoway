@@ -153,3 +153,7 @@ topoa.nc : topoa_nc4.nc
 #
 #giss2nc $DIR/ZNGDC1 ZNGDC1.nc --endian=big \
 #	--names=_,_,_,FCONT1,FGICE1
+
+# Check correctness of topoa; debugging diagnostic
+topoa_check.nc : topoa.nc global_ec_mm.nc global_ec.nc
+	python check_topoa.nc
