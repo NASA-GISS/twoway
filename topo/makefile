@@ -121,7 +121,7 @@ etopo1_ice_g1m.nc : ZETOPO1.NCEI-SeparateGreenland.nc ZNGDC1.nc
 
 # ----------------------------------------------
 topoo.nc : etopo1_ice_g1m.nc
-	make_topoo topoo.nc >topoo.out 2>topoo.err
+	make_topoo etopo1_ice_g1m.nc topoo.nc >topoo.out 2>topoo.err
 
 # The six regridding matrices (compressed) for global ice
 global_ec.nc.mk : topoo.nc etopo1_ice_g1m.nc
@@ -136,6 +136,8 @@ global_ec_mm.nc.mk : topoo.nc etopo1_ice_g1m.nc
 
 global_ec_mm.nc : global_ec_mm.nc.mk
 	make -f global_ec_mm.nc.mk
+
+
 
 # ---------------------------------------------------
 
@@ -157,3 +159,28 @@ topoa.nc : topoa_nc4.nc
 # Check correctness of topoa; debugging diagnostic
 topoa_check.nc : topoa.nc global_ec_mm.nc global_ec.nc
 	python check_topoa.nc
+
+
+# ==================================================================
+# No Greenland
+
+# Without Greenland
+etopo1_ice_ng1m.nc : ZETOPO1.NCEI-SeparateGreenland.nc ZNGDC1.nc
+	etopo1_ice etopo1_ice_ng
+
+topoo_ng.nc : etopo1_ice_ng1m.nc
+	make_topoo etopo1_ice_ng1m.nc topoo_ng.nc >topoo_ng.out 2>topoo_ng.err
+
+
+# Six regridding matrices (compressed), with mismatched regridding, w/o Greenland
+global_ec_ng_mm.nc.mk : topoo_ng.nc etopo1_ice_ng1m.nc
+	global_ec g1qx1 g1mx1m ghxh etopo1_ice_ng1m.nc topoo_ng.nc --mismatched -o global_ec_ng_mm.nc
+
+global_ec_ng_mm.nc : global_ec_ng_mm.nc.mk
+	make -f global_ec_ng_mm.nc.mk
+
+topoa_ng_nc4.nc : global_ec_ng_mm.nc topoo_ng.nc
+	make_topoa -o topoa_ng_nc4.nc --global_ec_mm global_ec_ng_mm.nc --topoo topoo_ng.nc
+
+topoa_ng.nc : topoa_ng_nc4.nc
+	nccopy -k classic topoa_ng_nc4.nc topoa_ng.nc
