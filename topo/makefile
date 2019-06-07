@@ -120,29 +120,23 @@ etopo1_ice_g1m.nc : ZETOPO1.NCEI-SeparateGreenland.nc ZNGDC1.nc
 
 
 # ----------------------------------------------
-topoo.nc : etopo1_ice_g1m.nc
+topoo.nc : etopo1_ice_g1m.nc Z10MX10M.nc
 	make_topoo etopo1_ice_g1m.nc topoo.nc >topoo.out 2>topoo.err
 
 # The six regridding matrices (compressed) for global ice
-global_ec.nc.mk : topoo.nc etopo1_ice_g1m.nc
-	global_ec g1qx1 g1mx1m ghxh etopo1_ice_g1m.nc topoo.nc -o global_ec.nc
+global_ecO.nc.mk : topoo.nc etopo1_ice_g1m.nc
+	global_ec g1qx1 g1mx1m ghxh etopo1_ice_g1m.nc topoo.nc --gcm-grid ocean --matrix-names EvA -o global_ecO.nc
 
-global_ec.nc : global_ec.nc.mk
-	make -f global_ec.nc.mk
+global_ecO.nc : global_ecO.nc.mk
+	make -f global_ecO.nc.mk
 
-# The six regridding matrices (compressed) for global ice, with mismatched regridding
-global_ec_mm.nc.mk : topoo.nc etopo1_ice_g1m.nc
-	global_ec g1qx1 g1mx1m ghxh etopo1_ice_g1m.nc topoo.nc --mismatched -o global_ec_mm.nc
-
-global_ec_mm.nc : global_ec_mm.nc.mk
-	make -f global_ec_mm.nc.mk
 
 
 
 # ---------------------------------------------------
 
-topoa_nc4.nc : global_ec_mm.nc topoo.nc
-	make_topoa -o topoa_nc4.nc --global_ec_mm global_ec_mm.nc --topoo topoo.nc
+topoa_nc4.nc : global_ecO.nc topoo.nc
+	make_topoa -o topoa_nc4.nc --global_ecO global_ecO.nc --topoo topoo.nc
 
 topoa.nc : topoa_nc4.nc
 	nccopy -k classic topoa_nc4.nc topoa.nc
@@ -157,8 +151,8 @@ topoa.nc : topoa_nc4.nc
 #	--names=_,_,_,FCONT1,FGICE1
 
 # Check correctness of topoa; debugging diagnostic
-topoa_check.nc : topoa.nc global_ec_mm.nc global_ec.nc
-	python check_topoa.nc
+topoa_check.nc : topoa.nc global_ecO.nc global_ec.nc
+	python check_topoa.py
 
 
 # ==================================================================
@@ -168,19 +162,37 @@ topoa_check.nc : topoa.nc global_ec_mm.nc global_ec.nc
 etopo1_ice_ng1m.nc : ZETOPO1.NCEI-SeparateGreenland.nc ZNGDC1.nc
 	etopo1_ice etopo1_ice_ng
 
-topoo_ng.nc : etopo1_ice_ng1m.nc
+topoo_ng.nc : etopo1_ice_ng1m.nc Z10MX10M.nc
 	make_topoo etopo1_ice_ng1m.nc topoo_ng.nc >topoo_ng.out 2>topoo_ng.err
 
 
 # Six regridding matrices (compressed), with mismatched regridding, w/o Greenland
-global_ec_ng_mm.nc.mk : topoo_ng.nc etopo1_ice_ng1m.nc
-	global_ec g1qx1 g1mx1m ghxh etopo1_ice_ng1m.nc topoo_ng.nc --mismatched -o global_ec_ng_mm.nc
+global_ecO_ng.nc.mk : topoo_ng.nc etopo1_ice_ng1m.nc
+	global_ec g1qx1 g1mx1m ghxh etopo1_ice_ng1m.nc topoo_ng.nc --gcm-grid ocean --matrix-names EvA -o global_ecO_ng.nc
 
-global_ec_ng_mm.nc : global_ec_ng_mm.nc.mk
-	make -f global_ec_ng_mm.nc.mk
+global_ecO_ng.nc : global_ecO_ng.nc.mk
+	make -f global_ecO_ng.nc.mk
 
-topoa_ng_nc4.nc : global_ec_ng_mm.nc topoo_ng.nc
-	make_topoa -o topoa_ng_nc4.nc --global_ec_mm global_ec_ng_mm.nc --topoo topoo_ng.nc
+#topoa_ng_nc4.nc : global_ecO_ng.nc topoo_ng.nc
+#	make_topoa -o topoa_ng_nc4.nc --global_ecO global_ecO_ng.nc --topoo topoo_ng.nc
+#
+#topoa_ng.nc : topoa_ng_nc4.nc
+#	nccopy -k classic topoa_ng_nc4.nc topoa_ng.nc
 
-topoa_ng.nc : topoa_ng_nc4.nc
-	nccopy -k classic topoa_ng_nc4.nc topoa_ng.nc
+# ===========================================================================
+# Merge Ice Sheet into No Greenland
+
+# Sample PISM ice sheet
+# See ../landice2/Makefile for how to generate this from original PISM state file
+pismsheet_elev_mask.nc : pismsheet_elev_mask.cdl
+	echo '*****************************************************************'
+	echo '[makefile] Reconstituting elevation and land mask data (from PISM)'
+	ncgen -o pismsheet_elev_mask.nc pismsheet_elev_mask.cdl
+
+pismsheet_g20_icebin_in.nc : modele_ll_g1qx1-sr_g20_searise.nc pismsheet_elev_mask.nc
+	echo '*****************************************************************'
+	echo '[makefile] Assembling IceBin Input File from grids (contains loadable gcmO).'
+	python3 write_icebin_in_base.py . modele_ll_g1qx1 sr_g20_searise pismsheet_elev_mask.nc ./pismsheet_g20_icebin_in.nc
+
+topoo_merged.nc : pismsheet_elev_mask.nc pismsheet_g20_icebin_in.nc global_ecO_ng.nc topoo_ng.nc
+	make_merged_topoo --topoo_merged topoo_merged.nc --elevmask pism:pismsheet_elev_mask.nc --gcmO pismsheet_g20_icebin_in.nc --global_ecO global_ecO_ng.nc --topoo topoo_ng.nc

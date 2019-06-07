@@ -37,7 +37,7 @@ def make_icebin_in_base(grid_dir, gridA_name, gridI_name, pism_spinup_fname, ofn
     # DATA_PATH = os.environ['DATA_PATH']
     #   pism_spinup_fname = os.path.join(DATA_PATH, 'searise/Greenland_5km_v1.1.nc')
 
-    ice_dx=20       # 20km ice grid
+#    ice_dx=20       # 20km ice grid
     #ice_dx=5       # 5km ice grid
 
     # ========== Set up gridA and height points
