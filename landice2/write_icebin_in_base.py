@@ -31,7 +31,7 @@ import sys
 import pickle
 import argparse
 
-def make_icebin_in_base(grid_dir, gridA_name, gridI_name, pism_spinup_fname, ofname):
+def make_icebin_in_base(gridA_fname, gridI_fname, overlap_fname, pism_spinup_fname, ofname):
     # gridA_name = 'modele_ll_g2x2_5'
     # gridI_name = 'searise_g%d' % ice_dx
     # DATA_PATH = os.environ['DATA_PATH']
@@ -41,8 +41,8 @@ def make_icebin_in_base(grid_dir, gridA_name, gridI_name, pism_spinup_fname, ofn
     #ice_dx=5       # 5km ice grid
 
     # ========== Set up gridA and height points
-    gridA_fname = os.path.join(grid_dir, gridA_name + '.nc')
-    hpdefs = np.array(range(0,20))*200.0 - 100.0
+#    gridA_fname = os.path.join(grid_dir, gridA_name + '.nc')
+    hpdefs = np.array(range(0,21))*200.0 - 200.0
     print('BEGIN read {}'.format(gridA_fname))
     mm = icebin.GCMRegridder(gridA_fname, 'grid', hpdefs, True)
     print('END read {}'.format(gridA_fname))
@@ -55,9 +55,12 @@ def make_icebin_in_base(grid_dir, gridA_name, gridI_name, pism_spinup_fname, ofn
     (elevI, maskI) = giss.pism.read_elevI_maskI(pism_spinup_fname)
     print('len(elevI) = ', elevI.shape)
 
-    gridI_fname = os.path.join(grid_dir, '%s.nc' % gridI_name)
-    overlap_fname = os.path.join(grid_dir, '%s-%s.nc' % (gridA_name, gridI_name))
+#    gridI_fname = os.path.join(grid_dir, '%s.nc' % gridI_name)
+#    gridI_leaf = os.path.split(gridI_fname)[1]
+#    overlap_fname = os.path.join(grid_dir, '%s-%s.nc' % (gridA_name, gridI_leaf))
     
+    print('overlap_fname {}'.format(overlap_fname))
+
     print('maskI',maskI.shape)
     mm.add_sheet('greenland',
         gridI_fname, 'grid',
