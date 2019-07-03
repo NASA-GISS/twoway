@@ -196,3 +196,6 @@ pismsheet_g20_icebin_in.nc : modele_ll_g1qx1-sr_g20_searise.nc pismsheet_elev_ma
 
 topoo_merged.nc : pismsheet_elev_mask.nc pismsheet_g20_icebin_in.nc global_ecO_ng.nc topoo_ng.nc
 	make_merged_topoo --topoo_merged topoo_merged.nc --elevmask pism:pismsheet_elev_mask.nc --gcmO pismsheet_g20_icebin_in.nc --global_ecO global_ecO_ng.nc --topoo topoo_ng.nc
+
+topoa_merged_nc4.nc : topoo_merged.nc
+	make_topoa -o topoa_merged_nc4.nc --global_ecO topoo_merged.nc --topoo topoo_merged.nc 2>err
