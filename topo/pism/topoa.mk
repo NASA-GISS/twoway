@@ -45,8 +45,12 @@ topoo_merged.nc : pismsheet_elev_mask.nc gcmO.nc ../../global_ecO_ng.nc ../../to
 	make_merged_topoo --topoo_merged topoo_merged.nc --elevmask pism:pismsheet_elev_mask.nc --gcmO gcmO.nc --global_ecO ../../global_ecO_ng.nc --topoo ../../topoo_ng.nc
 
 
+topo_oc.nc : topoo_merged.nc
+	python3 ../../make_topo_oc.py topoo_merged.nc -o topo_oc.nc
+
 topoa_nc4.nc : topoo_merged.nc
 	make_topoa -o topoa_nc4.nc --global_ecO topoo_merged.nc --topoo topoo_merged.nc 2>err
 
 topoa.nc : topoa_nc4.nc
 	nccopy -k classic topoa_nc4.nc topoa.nc
+
