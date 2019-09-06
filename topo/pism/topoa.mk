@@ -42,6 +42,7 @@ gcmO.nc : modele_ll_g1qx1-pism2_g20_pism2.nc pismsheet_elev_mask.nc ../../modele
 
 
 topoo_merged.nc : pismsheet_elev_mask.nc gcmO.nc ../../global_ecO_ng.nc ../../topoo_ng.nc
+#	make_merged_topoo --squash_ec 0 --topoo_merged topoo_merged.nc --elevmask pism:pismsheet_elev_mask.nc --gcmO gcmO.nc --global_ecO ../../global_ecO_ng.nc --topoo ../../topoo_ng.nc
 	make_merged_topoo --topoo_merged topoo_merged.nc --elevmask pism:pismsheet_elev_mask.nc --gcmO gcmO.nc --global_ecO ../../global_ecO_ng.nc --topoo ../../topoo_ng.nc
 
 
