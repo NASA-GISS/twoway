@@ -4,7 +4,7 @@ all : z1qx1n_bs1-onlygr.nc
 sr_g20_searise.nc :
 	echo '*****************************************************************'
 	echo '[makefile] Generating sr_g20_searise.nc: SeaRISE Greenland 20km grid (PISM-style indexing)'
-	searise --icemodel searise
+	searise_grid --index_order searise
 
 # Generate the 2 minute grid
 modele_ll_g2mx2m.nc:
