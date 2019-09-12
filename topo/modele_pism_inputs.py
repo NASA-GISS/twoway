@@ -96,7 +96,7 @@ icebin_cdl_str = """
 //      lisnow_dump_forcing
 //      lisnow_percolate_nl
 
-netcdf icebin {
+netcdf icebin {{
 variables:
     // Setup methods (in ectl) to be run after symlinks are
     // created and before ModelE is launched.
@@ -151,24 +151,24 @@ variables:
     double m.greenland.pism ;
         // Command-line arguments provided to PISM upon initialization
         // Paths will be resolved for filenames in this list.
-        m.greenland.pism:i = "input-file:pism/std-greenland/g20km_10ka.nc" ;
-        m.greenland.pism:skip = "" ;
-        m.greenland.pism:skip_max = "10" ;
-        m.greenland.pism:surface = "given" ;
-        m.greenland.pism:surface_given_file = "input-file:pism/std-greenland/pism_Greenland_5km_v1.1.nc" ;
-        m.greenland.pism:calving = "ocean_kill" ;
-        m.greenland.pism:ocean_kill_file = "input-file:pism/std-greenland/pism_Greenland_5km_v1.1.nc" ;
-        m.greenland.pism:sia_e = "3.0" ;
-        m.greenland.pism:ts_file = "output-file:greenland/ts_g20km_10ka_run2.nc" ;
-        m.greenland.pism:ts_times = "0:1:1000" ;
-        m.greenland.pism:extra_file = "output-file:greenland/ex_g20km_10ka_run2.nc" ;
-        m.greenland.pism:extra_times = "0:.1:1000" ;
-        m.greenland.pism:extra_vars = "climatic_mass_balance,ice_surface_temp,diffusivity,temppabase,tempicethk_basal,bmelt,tillwat,csurf,mask,thk,topg,usurf" ;
-        m.greenland.pism:o = "g20km_10ka_run2.nc" ;
-    double m.greenland.dismal ;
-        m.greenland.dismal:output_dir = "dismal_out2" ;
+{greenland_pism_args}
 
-}
+#        m.greenland.pism:i = "input-file:pism/std-greenland/g20km_10ka.nc" ;
+#        m.greenland.pism:skip = "" ;
+#        m.greenland.pism:skip_max = "10" ;
+#        m.greenland.pism:surface = "given" ;
+#        m.greenland.pism:surface_given_file = "input-file:pism/std-greenland/pism_Greenland_5km_v1.1.nc" ;
+#        m.greenland.pism:calving = "ocean_kill" ;
+#        m.greenland.pism:ocean_kill_file = "input-file:pism/std-greenland/pism_Greenland_5km_v1.1.nc" ;
+#        m.greenland.pism:sia_e = "3.0" ;
+#        m.greenland.pism:ts_file = "output-file:greenland/ts_g20km_10ka_run2.nc" ;
+#        m.greenland.pism:ts_times = "0:1:1000" ;
+#        m.greenland.pism:extra_file = "output-file:greenland/ex_g20km_10ka_run2.nc" ;
+#        m.greenland.pism:extra_times = "0:.1:1000" ;
+#        m.greenland.pism:extra_vars = "climatic_mass_balance,ice_surface_temp,diffusivity,temppabase,tempicethk_basal,bmelt,tillwat,csurf,mask,thk,topg,usurf" ;
+#        m.greenland.pism:o = "g20km_10ka_run2.nc" ;
+
+}}
 """
 
 def snoop_pism(pism_state):
@@ -195,17 +195,19 @@ def snoop_pism(pism_state):
     # Parse command line into (name, value pairs)
     args = collections.OrderedDict()
     vals['args'] = args
-    for i in range(0,len(cmd)):
+    i = 0
+    while i < len(cmd):
         if cmd[i].startswith('-'):
-            args[cmd[i][1:]] = cmd[i+1]
-            i += 1
-
-    # Get absolute name of files given in PISM command line as relative
-    for key in ('i', 'surface_given_file', 'ocean_kill_file', 'ts_file', 'extra_file', 'o'):
-        args[key] = os.path.normpath(os.path.join(pism_dir, args[key]))
+            if (not cmd[i+1].startswith('-')) or (len(cmd[i+1])>1 and cmd[i+1][2].isdigit()):
+                args[cmd[i][1:]] = cmd[i+1]
+                i += 1
+            else:
+                args[cmd[i][1:]] = None
+        i += 1
 
     # Read the 'i' file for more info
-    with netCDF4.Dataset(args['i']) as nc:
+    fname = os.path.normpath(os.path.join(pism_dir, args['i']))
+    with netCDF4.Dataset(fname) as nc:
         vals['proj4'] = nc.proj4
         xc5 = nc.variables['x1'][:]    # Cell centers (for standard 5km grid)
         yc5 = nc.variables['y1'][:]
@@ -215,8 +217,8 @@ def snoop_pism(pism_state):
     yc = np.array(list(yc5[0] + (yc5[-1]-yc5[0]) * iy / (My-1) for iy in range(0,My)))
     vals['x_centers'] = xc
     vals['y_centers'] = yc
-    #vals['index_order'] = (0,1)    # Later version does SeaRise order
-    vals['index_order'] = (1,0)    # Later version does SeaRise order
+    #vals['index_order'] = (0,1)    # PISM order
+    vals['index_order'] = (1,0)    # SeaRise order
 
     # Name grid after name of input file
     idx = int(.5 + (xc[1] - xc[0]) / 1000.)
@@ -233,6 +235,38 @@ def snoop_pism(pism_state):
         vals['name'] = '{}{}km_{}'.format(os.path.splitext(iname)[0], dxdy, vals['index_order'][0], vals['index_order'][1])
 
     return vals
+
+def make_pism_args(pism_dir, pism):
+    """Generates a (key, value) list of PISM arguments for the config file we will write,
+    BASED ON the PISM arguments of the original bootstrap
+
+    pism:
+        Result of snoop_pism()
+    """
+    args = collections.OrderedDict(pism['args'].items())
+    for arg in ('bootstrap', 'Mx', 'My', 'Mz', 'Mbz', 'z_spacing', 'Lz', 'Lbz',
+        'ys', 'ye',   # Model run duration
+        ):
+        try:
+            del args[arg]
+        except KeyError:
+            pass
+
+    # Get absolute name of files given in PISM command line as relative
+    #for key in ('i', 'surface_given_file', 'ocean_kill_file', 'ts_file', 'extra_file', 'o'):
+    for key in ('i', 'surface_given_file', 'ocean_kill_file'):
+        args[key] = os.path.normpath(os.path.join(pism_dir, args[key]))
+
+    # Add to -extra_vars
+    extra_vars = args['extra_vars'].split(',')
+    evset = set(extra_vars)
+    for var in "climatic_mass_balance,ice_surface_temp,diffusivity,temppabase,tempicethk_basal,bmelt,tillwat,csurf,mask,thk,topg,usurf".split(','):
+        if var not in evset:
+            extra_vars.append(var)
+    args['extra_vars'] = ','.join(extra_vars)
+
+    return args
+
 
 def center_to_boundaries(xc):
     xb = np.zeros(len(xc)+1)
@@ -261,7 +295,7 @@ def write_gridspec_xy(pism, spec_fname):
         nc_info = nc.createVariable('grid.info', 'i', ())
         nc_info.setncattr('name', pism['name'])
         nc_info.type = 'XY'
-        nc_info.indices = (0,1)    # Old PISM indexing order; reverse for new PISM / SeaRISE
+        nc_info.indices = pism['index_order']    # Old PISM indexing order; reverse for new PISM / SeaRISE
         nc_info.sproj = pism['proj4']
         nc_info.nx = len(xc)
         nc_info.ny = len(yc)
@@ -284,6 +318,8 @@ def modele_pism_inputs(topo_root, coupled_dir, pism_state,
     grid_dir: (OUT)
         Place to look for pre-generated grids (and overlaps)
     """
+    pism_dir = os.path.split(pism_state)[0]
+
     if grid_dir is None:
         grid_dir = topo_root
     os.makedirs(grid_dir, exist_ok=True)
@@ -308,6 +344,8 @@ def modele_pism_inputs(topo_root, coupled_dir, pism_state,
     pism = snoop_pism(pism_state)
     write_gridspec_xy(pism, os.path.join(coupled_dir, 'gridI_spec.nc'))
     gridI_leaf = '{}.nc'.format(pism['name'])
+#    gridI_leaf = 'sr_g20_pism.nc'
+#    gridI_leaf = 'sr_g20_searise.nc'
     gridI_fname = os.path.join(grid_dir, gridI_leaf)
     repl['gridI'] = gridI_fname
 
@@ -318,8 +356,14 @@ def modele_pism_inputs(topo_root, coupled_dir, pism_state,
     # Do the rest
     print('************** Makefile')
     with pushd(coupled_dir):
+        args = make_pism_args(pism_dir, pism)
+        lines = []
+        for key,val in args.items():
+            lines.append('        m.greenland.pism:{} = "{}" ;'.format(key,val))
+        repl['greenland_pism_args'] = '\n'.join(lines)
+
         with open('icebin.cdl', 'w') as fout:
-            fout.write(icebin_cdl_str)
+            fout.write(icebin_cdl_str.format(**repl))
 
         with open('modele_pism_inputs.mk', 'w') as fout:
             fout.write(makefile_str.format(**repl))
