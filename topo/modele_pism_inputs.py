@@ -63,9 +63,9 @@ gcmO.nc : {exgrid} {pism_state} {gridA} {gridI}
 	python3 {topo_root}/write_icebin_in_base.py {gridA} {gridI} {exgrid} {pism_state} ./gcmO.nc
 
 topoo_merged.nc : {pism_state} gcmO.nc {global_ecO_ng} {topoo_ng}
-        # Merge without squashing
+	# Merge without squashing
 	make_merged_topoo --squash_ec 0 --topoo_merged topoo_merged.nc --elevmask pism:{pism_state} --gcmO gcmO.nc --global_ecO {global_ecO_ng} --topoo {topoo_ng}
-        # Merge with squashing
+	# Merge with squashing
 	# make_merged_topoo --topoo_merged topoo_merged.nc --elevmask pism:{pism_state} --gcmO gcmO.nc --global_ecO {global_ecO_ng} --topoo {topoo_ng}
 
 
@@ -183,6 +183,7 @@ def snoop_pism(pism_state):
 
     # Read the main PISM state file
     vals = collections.OrderedDict()
+    print('pism_state = {}'.format(pism_state))
     with netCDF4.Dataset(pism_state) as nc:
         # Read command line
         cmd = re.split(r'\s+', nc.command)
@@ -217,7 +218,7 @@ def snoop_pism(pism_state):
     yc = np.array(list(yc5[0] + (yc5[-1]-yc5[0]) * iy / (My-1) for iy in range(0,My)))
     vals['x_centers'] = xc
     vals['y_centers'] = yc
-    #vals['index_order'] = (0,1)    # PISM order
+    #vals['index_order'] = (0,1)    # old PISM order; totally obsolete since 2015
     vals['index_order'] = (1,0)    # SeaRise order
 
     # Name grid after name of input file
@@ -379,6 +380,9 @@ def main():
     parser.add_argument('--pism', dest='pism',
         required=True,
         help='PISM state file (eg after spinup)')
+    parser.add_argument('--grids', dest='grid_dir',
+        default=topo_root,
+        help="Name of directory for temporary reusable grid files.")
     parser.add_argument('--out', dest='coupled_dir',
         required=True,
         help="Name of directory for output files.  Eg: <ectl-run>/inputs")
@@ -391,8 +395,9 @@ def main():
         if k != 'args':
             print(k,v)
 
-    modele_pism_inputs(topo_root, os.path.realpath(args.coupled_dir), os.path.realpath(args.pism),
-        grid_dir=topo_root)
+    modele_pism_inputs(
+        topo_root, os.path.realpath(args.coupled_dir), os.path.realpath(args.pism),
+        grid_dir=os.path.realpath(args.grid_dir))
 
 main()
 
