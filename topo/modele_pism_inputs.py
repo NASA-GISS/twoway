@@ -9,6 +9,11 @@ import re
 import netCDF4
 import collections
 import numpy as np
+import icebin
+import giss.ncutil
+# --- Stuff from modele-control git project
+import modele.gic2stieglitz
+import modele.enthalpy
 
 @contextlib.contextmanager
 def pushd(dir):
@@ -28,7 +33,7 @@ def make_grid(grid_cmd, grid_fname):
     cmd = grid_cmd + ['-o', grid_fname]
     print(' '.join(cmd))
     ret = subprocess.run(cmd)
-    if ret != 0:
+    if ret.returncode != 0:
         raise RuntimError("Command failed: {}".format(cmd))
     return True
 
@@ -302,6 +307,23 @@ def write_gridspec_xy(pism, spec_fname):
         nc_info.ny = len(yc)
 
 
+def symlink_rel(src, dest):
+    # Dereference once if this is as a link
+    if os.path.islink(src):
+        dir = os.path.split(src)[0]
+        src_abs = os.path.abspath(os.path.normpath(os.readlink(src), dir))
+    else:
+        src_abs = os.path.abspath(src)
+    dir = os.path.split(dest)[0]
+    src_rel = os.path.relpath(src_abs, dir)
+    if (os.path.islink(dest)):
+        if src_rel != os.readlink(dest):
+            os.symlink(src_rel, dest)
+    else:
+        # Not a pre-existing link, try to create it.    
+        # If a file already existed there, the resulting error is appropriate.
+        os.symlink(src_rel, dest)
+
 def modele_pism_inputs(topo_root, run_dir, pism_state,
     grid_dir=None):
 
@@ -331,7 +353,9 @@ def modele_pism_inputs(topo_root, run_dir, pism_state,
 
     if grid_dir is None:
         grid_dir = topo_root
-    os.symlink(os.path.join(run_dir, 'inputs', 'grids'), grid_dir)
+
+    os.makedirs(os.path.join(run_dir, 'inputs'), exist_ok=True)    
+    symlink_rel(grid_dir, os.path.join(run_dir, 'inputs', 'grids'))
     os.makedirs(grid_dir, exist_ok=True)
 #    os.makedirs(coupled_dir, exist_ok=True)
 
@@ -383,12 +407,14 @@ def modele_pism_inputs(topo_root, run_dir, pism_state,
             fout.write(makefile_str.format(**repl))
         cmd = ['make', '-f', 'modele_pism_inputs.mk', 'topoa.nc', 'topo_oc.nc']
         print(' '.join(cmd))
-        subprocess.run(cmd)
+        rcmd = subprocess.run(cmd)
+        if rcmd.returncode != 0:
+            raise RuntimeError('Problem running the makefile')
 
 def is_stieglitz(gic):
     """Determines if a GIC file is Lynch-Stieglitz format."""
     with netCDF4.Dataset(gic, 'r') as nc:
-        return 'wsn' in nc.variables:
+        return 'wsn' in nc.variables
 
 def merge_GIC(GIC0, TOPO, pism_ic, mm, oGIC):
 
@@ -405,96 +431,95 @@ def merge_GIC(GIC0, TOPO, pism_ic, mm, oGIC):
         Loaded-up IceBin GCMRegridder (eg: mm = icebin.GCMRegridder(icebin_in))
     """
 
-    # Get regridding matrices
-    rm = mm.regrid_matrices('greenland')
-    EvI_n = rm.matrix('EvI', correctA=False)    # No projection correction; use for regridding [J kg-1]
-    AvI = rm.matrix('AvI')
 
-
-    # Read info on EC segments from the TOPO file
-    with netCDF4.Dataset(TOPO) as nc:
+    # -------- Load original Stieglitz state
+    with netCDF4.Dataset(GIC0, 'r') as nc:
         nhc_gcm = len(nc.dimensions['nhc'])
-        nhc_ice = nhc_gcm - 1
-        jm = len(nc.dimensions['lat'])
-        im = len(nc.dimensions['lon'])
+        jm = len(nc.dimensions['jm'])
+        im = len(nc.dimensions['im'])
+        nlice = len(nc.dimensions['nlice'])
 
+        if nhc_gcm > 1:
+            dz = nc.variables['dz'][:,:,:,:]
+            wsn = nc.variables['wsn'][:,:,:,:]
+            hsn = nc.variables['hsn'][:,:,:,:]
+        else:
+            # Read a proper NHC from the EC-enabled TOPO File
+            with netCDF4.Dataset(TOPO, 'r') as nc2:
+                nhc_gcm = len(nc2.dimensions['nhc'])
+
+            shapeEx = (nhc_gcm,jm,im,nlice)    # Ex = Stieglitz model dimensions w/ nhc_gcm
+            dz = np.zeros(shapeEx)
+            wsn = np.zeros(shapeEx)
+            hsn = np.zeros(shapeEx)
+            for ihc in range(0,nhc_gcm):
+                dz[ihc,:,:,:] = nc.variables['dz'][0,:,:,:]
+                wsn[ihc,:,:,:] = nc.variables['wsn'][0,:,:,:]
+                hsn[ihc,:,:,:] = nc.variables['hsn'][0,:,:,:]
+    nhc_ice = nhc_gcm - 1
+    senth = hsn / wsn
+                
+    # ---------- Read masking info
+    with netCDF4.Dataset(TOPO) as nc:
         fhc = nc.variables['fhc'][:]
 
-    nlice = 4
+    # --------------- Set up regridding matrices
+    # Read elevmaskI
+    emI_land, emI_ice = icebin.read_elevmask('pism:'+pism_ic)
 
-    # Read original ModelE initial conditions (Lynch-Stieglitz)
-    with netCDF4.Dataset(GIC0, 'r') as nc:
-        wsn0A = nc.variables['wsn'][0,:,:,0]
-        hsn0A = nc.variables['hsn'][0,:,:,0]
-        senth0A = hsn0A / wsn0A
+    # Get regridding matrices
+    nhc_localice = mm.nhc   # Elevation classes in local ice, not including global ice
 
-    # Read data from PISM initial conditions
+    rm = mm.regrid_matrices('greenland', emI_ice, correctA=False)
+    EvI_n = rm.matrix('EvI')    # No projection correction; use for regridding [J kg-1]
+    rm = mm.regrid_matrices('greenland', emI_ice, correctA=True)
+    AvI = rm.matrix('AvI')
+
+    # ---------- Read and regrid data from PISM initial conditions
     with netCDF4.Dataset(pism_ic) as nc:
         tempI = nc.variables['effective_ice_surface_temp'][-1,:,:].reshape(-1)    # (y,x)  [K]
         fracI = nc.variables['effective_ice_surface_liquid_water_fraction'][-1,:,:].reshape(-1)    # [1]
-    senthI = enthalpy.temp_to_senth(tempI-273.15, fracI)    # Convert to specific enthalpy (ModelE base)
-    senthA = AvI.apply(senthI).reshape((jm,im))
-    # Combine with global initial condition
-    # This merging of ice sheets can/will create a few grid cells that
-    # had an ice sheet before under ModelE, and are now off the PISM
-    # ice sheet; they've become non-ice-sheet "legacy ice."
-    # More careful (manual) merging would solve this.
-    nans = np.isnan(senthA)
-    senthA[nans] = senth0A[nans]
+    senthI = modele.enthalpy.temp_to_senth(tempI-273.15, fracI)    # Convert to specific enthalpy (ModelE base)
+    senthE = EvI_n.apply_M(senthI).reshape((nhc_localice,jm,im))
+    senthA = AvI.apply_M(senthI).reshape((jm,im))
+    print('senthI has ',np.count_nonzero(~np.isnan(senthI)))
+    print('senthE has ',np.count_nonzero(~np.isnan(senthE)))
+    print('senthA has ',np.count_nonzero(~np.isnan(senthA)))
 
-    shapeA = (jm,im)
-    shapeEx = (nhc_gcm,jm,im,nlice)    # Ex = Stieglitz model dimensions w/ nhc_gcm
 
-    dz = np.zeros(shapeEx)    # (nhc_gcm, j, i, nlice)
-    #wsn = np.zeros(shapeEx)
-    #hsn = np.zeros(shapeEx)
-    #tsn = np.zeros(shapeEx)
-    shsn = np.zeros(shapeEx)    # Specific enthalpy
+    # --------------- Copy into 
 
-    # Thickness of each layer of snow [m]
-    dz[:,:,:,0] = .1
-    dz[:,:,:,1] = 2.9
-    dz[:,:,:,2] = 3.
-    dz[:,:,:,3] = 4.
-
-    # Initialize everything at ice density (promotes stability vs. ice sheet below)
-    wsn = dz * RHOI
-
-    # Initialize everything at 1/2 ice density (this IS the surface...)
-    # wsn = dz * RHOI * .5
-
-    # ------------------------ EC segments
-    senthE = EvI_n.apply(senthI).reshape((nhc_ice,jm,im))
-    for ihc in range(0,nhc_ice):
+    # --- EC segments
+    for ihc in range(0,nhc_localice):
         senthE_ihc = senthE[ihc,:,:]
-        nans = np.isnan(senthE_ihc)
-        senthE_ihc[nans] = senthA[nans]
+        mask = np.logical_not(np.isnan(senthE_ihc))
 
-    for il in range(0,nlice):
-        shsn[base:end,:,:,il] = senthE
+        for il in range(0,nlice):
+            senth_ihc = senth[ihc,:,:,il]
+            senth_ihc[mask] = senthE_ihc[mask]
 
     # ------------------------ Sea/Land
     for il in range(0,nlice):
-        shsn[nhc_ice,:,:,il] = senthA
+        mask = np.logical_not(np.isnan(senthA))
+        senth_ihc = senth[nhc_ice,:,:,il]
+        senth_ihc[mask] = senthA[mask]
 
-    # ----------------------------------------------
 
-    shsn[fhc == 0] = np.nan
+    # --------- Convert back to ModelE variables
+    tsn,isn = modele.enthalpy.senth_to_temp(senth)
+    hsn = senth * wsn
 
-    tsn,isn = enthalpy.senth_to_temp(shsn)
-    hsn = shsn * wsn
-
-    with netCDF4.Dataset(oGIC, 'w') as ncout:
-        with netCDF4.Dataset(GIC0, 'r') as ncin:
+    with netCDF4.Dataset(GIC0, 'r') as ncin:
+        with netCDF4.Dataset(oGIC, 'w', format='NETCDF3_CLASSIC') as ncout:
             # Copy GIC0 --> oGIC except for the variables we want to rewrite
-            nco = giss.ncutil.copy_nc(ncin, ncout,
-                var_filter = lambda x : None if x in {'dz', 'wsn', 'hsn', 'tsn'} else x)
-            nco.define_vars(zlib=True)
-            ncout.createDimension('nlice', 4)
+            nco = giss.ncutil.copy_nc(ncin, ncout)
+            nco.define_vars([x for x in ncin.variables.keys() if x not in {'dz','wsn','hsn','tsn'}])
+
+            ncout.createDimension('nlice', nlice)
             ncout.createDimension('nhc', nhc_gcm)
 
-            args = 'd', ('nhc', 'jm', 'im', 'nlice')
-            kwargs = {'zlib' : True}
+            args = ('d', ('nhc', 'jm', 'im', 'nlice'))
+            kwargs = {}
             dz_v = ncout.createVariable('dz', *args, **kwargs)
             wsn_v = ncout.createVariable('wsn', *args, **kwargs)
             hsn_v = ncout.createVariable('hsn', *args, **kwargs)
@@ -509,21 +534,27 @@ def merge_GIC(GIC0, TOPO, pism_ic, mm, oGIC):
 
 def modele_pism_gic(run_dir, pism_state):
 
+    print('BEGIN modele_pism_gic')
+
     # ======== Step 1: Convert original GIC file to Lynch-Stieglitz GIC file
 
     # Retrieve the original rundeck-provided GIC file,
     GIC0 = os.readlink(os.path.join(run_dir, 'GIC'))
-    GIC0ns = os.path.join(run_dir, 'GIC_twolayer')
+    GIC0ns = os.path.join(run_dir, 'GIC_liclassic')
     if is_stieglitz(GIC0):
         GIC0 = os.readlink(GIC0ns)
     else:
-        # Save link to the original GIC file so we can retrieve later
-        os.symlink(os.readlink(GIC0), GIC0ns)
+        symlink_rel(GIC0, GIC0ns)
 
     stem = os.path.splitext(os.path.split(GIC0)[1])[0]
     GIC1 = os.path.join(run_dir, 'inputs', stem+'_stieglitz.nc')
 
-#    modele.gic2stieglitz.gic2stieglitz(GIC0, GIC1)
+
+    print('stem {}'.format(stem))
+    print('GIC0 {}'.format(GIC0))
+    print('GIC1 {}'.format(GIC1))
+
+    modele.gic2stieglitz.gic2stieglitz(GIC0, GIC1)
 
     # ======== Step 2: Merge ice sheet into GIC file
     GIC2 = os.path.join(run_dir, 'inputs', stem+'_merged.nc')
@@ -536,14 +567,15 @@ def modele_pism_gic(run_dir, pism_state):
 
     # Obtain IceBin regridder for Atmosphere (not ocean), based on results
     # of above makefile
-    mmO = icebin.GCMRegridder(os.path.join(args.run_dir, 'inputs', 'gcmO.nc'))
-    with netCDF4.Dataset(os.path.join(args.run_dir, 'inputs', 'topoo_merged.nc')) as nc:
+    mmO = icebin.GCMRegridder(os.path.join(run_dir, 'inputs', 'gcmO.nc'))
+    with netCDF4.Dataset(os.path.join(run_dir, 'inputs', 'topoo_merged.nc')) as nc:
         foceanAOp = nc.variables['FOCEANF'][:]
         foceanAOm = nc.variables['FOCEAN'][:]
     mmA = mmO.to_modele((foceanAOp, foceanAOm))
 
     # Merge thet GIC file
-    merge_GIC(GIC1, os.path.join(args.run_dir, 'inputs', 'topoa.nc'),
+    merge_GIC(
+        GIC1, os.path.join(run_dir, 'inputs', 'topoa.nc'),
         pism_state, mmA, GIC2)
 
 
@@ -571,7 +603,7 @@ def main():
             print(k,v)
 
     run_dir = os.path.realpath(args.run_dir)
-    pism_state = args.pism
+    pism_state = os.path.realpath(args.pism)
     modele_pism_inputs(
         topo_root, run_dir, pism_state,
         grid_dir=os.path.realpath(args.grid_dir))
