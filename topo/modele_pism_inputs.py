@@ -2,6 +2,7 @@
 #
 # Eg: python3 ../topo/modele_pism_inputs.py --out e17 --pism ../pism/std-greenland/g20km_10ka.nc
 
+import sys
 import argparse
 import subprocess
 import contextlib, os
@@ -475,28 +476,47 @@ def merge_GIC(GIC0, TOPO, pism_ic, mm, oGIC):
     rm = mm.regrid_matrices('greenland', emI_ice, correctA=True)
     AvI = rm.matrix('AvI')
 
+    xx = AvI.to_coo()
+    print('AvI has NaN', np.count_nonzero(np.isnan(xx.data)))
+    xx = EvI_n.to_coo()
+    print('EvI has NaN', np.count_nonzero(np.isnan(xx.data)))
+    #print(xx.data)
+    #print(xx.row)
+    
+
+
+
+
+
     # ---------- Read and regrid data from PISM initial conditions
     with netCDF4.Dataset(pism_ic) as nc:
         tempI = nc.variables['effective_ice_surface_temp'][-1,:,:].reshape(-1)    # (y,x)  [K]
         fracI = nc.variables['effective_ice_surface_liquid_water_fraction'][-1,:,:].reshape(-1)    # [1]
     senthI = modele.enthalpy.temp_to_senth(tempI-273.15, fracI)    # Convert to specific enthalpy (ModelE base)
     senthE = EvI_n.apply_M(senthI).reshape((nhc_localice,jm,im))
+#    senthE = (EvI_n.to_coo() * senthI).reshape((nhc_localice,jm,im))
     senthA = AvI.apply_M(senthI).reshape((jm,im))
-    print('senthI has ',np.count_nonzero(~np.isnan(senthI)))
-    print('senthE has ',np.count_nonzero(~np.isnan(senthE)))
-    print('senthA has ',np.count_nonzero(~np.isnan(senthA)))
+#    print('senthI has NaN',np.count_nonzero(np.isnan(senthI)))
+#    print('senthE has NaN ',np.count_nonzero(np.isnan(senthE)), senthE.shape)
+#    print('senthI has ',np.count_nonzero(~np.isnan(senthI)))
+#    print('senthE has ',np.count_nonzero(senthE))
+#    print('senthA has ',np.count_nonzero(~np.isnan(senthA)))
 
+    # -------------- Mask out unused ECs
 
     # --------------- Copy into 
 
     # --- EC segments
     for ihc in range(0,nhc_localice):
         senthE_ihc = senthE[ihc,:,:]
+        xmask_fhc = (fhc[ihc,:,:] == 0)
         mask = np.logical_not(np.isnan(senthE_ihc))
 
         for il in range(0,nlice):
             senth_ihc = senth[ihc,:,:,il]
             senth_ihc[mask] = senthE_ihc[mask]
+            senth_ihc[xmask_fhc] = np.nan
+#            senth[ihc,:,:,il] = senth_ihc
 
     # ------------------------ Sea/Land
     for il in range(0,nlice):
