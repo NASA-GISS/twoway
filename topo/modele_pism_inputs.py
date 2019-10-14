@@ -15,6 +15,7 @@ import giss.ncutil
 # --- Stuff from modele-control git project
 import modele.gic2stieglitz
 import modele.enthalpy
+import ectl.pathutil
 
 @contextlib.contextmanager
 def pushd(dir):
@@ -108,12 +109,20 @@ variables:
     // created and before ModelE is launched.
     // Names of these attributes can be whatever you like
     int setups ;
-        setups:landice = "ectl.xsetup.pism_landice.xsetup";
+    //    setups:landice = "ectl.xsetup.pism_landice.xsetup";
 
     // ModelE-specific variables cover all ice sheets
     int m.info ;
 
+        // Definition of grids used in this ModelE run
+        // (atmosphere, elevation class definitions, greenland)
         m.info:grid = "input-file:./inputs/gcmO.nc";
+
+        // Global TOPO file, on ocean (O) grid, but missing Greenland
+        m.info:topo_ocean = "input-file:./inputs/topoo_ng.nc";
+
+        // EvO matrix, missing Greenland
+        m.info:global_ec = "input-file:./inputs/global_ecO_ng.nc";
 
         // Where IceBin may write stuff
         m.info:output_dir = "output-dir:icebin";
@@ -141,6 +150,9 @@ variables:
         // See IceModel_PISM::update_elevation
         m.greenland.info:update_elevation = "t" ;
 
+        // Scale size of Gaussian smoother for EvI in X,Y,Z directions
+        m.greenland.info:sigma = 50000., 50000., 100. ;
+
         // Variable currently in icebin_in, but maybe they should be moved here.
         // m.greenland.info:interp_grid = "EXCH" ;
         // m.greenland.info:interp_style = "Z_INTERP" ;
@@ -159,20 +171,20 @@ variables:
         // Paths will be resolved for filenames in this list.
 {greenland_pism_args}
 
-#        m.greenland.pism:i = "input-file:pism/std-greenland/g20km_10ka.nc" ;
-#        m.greenland.pism:skip = "" ;
-#        m.greenland.pism:skip_max = "10" ;
-#        m.greenland.pism:surface = "given" ;
-#        m.greenland.pism:surface_given_file = "input-file:pism/std-greenland/pism_Greenland_5km_v1.1.nc" ;
-#        m.greenland.pism:calving = "ocean_kill" ;
-#        m.greenland.pism:ocean_kill_file = "input-file:pism/std-greenland/pism_Greenland_5km_v1.1.nc" ;
-#        m.greenland.pism:sia_e = "3.0" ;
-#        m.greenland.pism:ts_file = "output-file:greenland/ts_g20km_10ka_run2.nc" ;
-#        m.greenland.pism:ts_times = "0:1:1000" ;
-#        m.greenland.pism:extra_file = "output-file:greenland/ex_g20km_10ka_run2.nc" ;
-#        m.greenland.pism:extra_times = "0:.1:1000" ;
-#        m.greenland.pism:extra_vars = "climatic_mass_balance,ice_surface_temp,diffusivity,temppabase,tempicethk_basal,bmelt,tillwat,csurf,mask,thk,topg,usurf" ;
-#        m.greenland.pism:o = "g20km_10ka_run2.nc" ;
+//        m.greenland.pism:i = "input-file:pism/std-greenland/g20km_10ka.nc" ;
+//        m.greenland.pism:skip = "" ;
+//        m.greenland.pism:skip_max = "10" ;
+//        m.greenland.pism:surface = "given" ;
+//        m.greenland.pism:surface_given_file = "input-file:pism/std-greenland/pism_Greenland_5km_v1.1.nc" ;
+//        m.greenland.pism:calving = "ocean_kill" ;
+//        m.greenland.pism:ocean_kill_file = "input-file:pism/std-greenland/pism_Greenland_5km_v1.1.nc" ;
+//        m.greenland.pism:sia_e = "3.0" ;
+//        m.greenland.pism:ts_file = "output-file:greenland/ts_g20km_10ka_run2.nc" ;
+//        m.greenland.pism:ts_times = "0:1:1000" ;
+//        m.greenland.pism:extra_file = "output-file:greenland/ex_g20km_10ka_run2.nc" ;
+//        m.greenland.pism:extra_times = "0:.1:1000" ;
+//        m.greenland.pism:extra_vars = "climatic_mass_balance,ice_surface_temp,diffusivity,temppabase,tempicethk_basal,bmelt,tillwat,csurf,mask,thk,topg,usurf" ;
+//        m.greenland.pism:o = "g20km_10ka_run2.nc" ;
 
 }}
 """
@@ -189,6 +201,7 @@ def snoop_pism(pism_state):
 
     # Read the main PISM state file
     vals = collections.OrderedDict()
+    vals['pism_state'] = pism_state
     print('pism_state = {}'.format(pism_state))
     with netCDF4.Dataset(pism_state) as nc:
         # Read command line
@@ -243,14 +256,16 @@ def snoop_pism(pism_state):
 
     return vals
 
-def make_pism_args(pism_dir, pism):
+def make_pism_args(pism_dir, run_dir, pism):
     """Generates a (key, value) list of PISM arguments for the config file we will write,
     BASED ON the PISM arguments of the original bootstrap
 
     pism:
         Result of snoop_pism()
     """
-    args = collections.OrderedDict(pism['args'].items())
+    args = collections.OrderedDict()
+    args['i'] = pism['pism_state']
+    args.update((k,v) for k,v in pism['args'].items() if k != 'i')
     for arg in ('bootstrap', 'Mx', 'My', 'Mz', 'Mbz', 'z_spacing', 'Lz', 'Lbz',
         'ys', 'ye',   # Model run duration
         ):
@@ -259,10 +274,16 @@ def make_pism_args(pism_dir, pism):
         except KeyError:
             pass
 
+
     # Get absolute name of files given in PISM command line as relative
     #for key in ('i', 'surface_given_file', 'ocean_kill_file', 'ts_file', 'extra_file', 'o'):
     for key in ('i', 'surface_given_file', 'ocean_kill_file'):
-        args[key] = os.path.normpath(os.path.join(pism_dir, args[key]))
+        abs = os.path.normpath(os.path.join(pism_dir, args[key]))
+        args[key] = 'input-file:{}'.format(os.path.relpath(abs, run_dir))
+
+    for key in ('ts_file', 'extra_file', 'o'):
+        args[key] = 'output-file:{}'.format(os.path.join('greenland', args[key]))
+
 
     # Add to -extra_vars
     extra_vars = args['extra_vars'].split(',')
@@ -360,6 +381,10 @@ def modele_pism_inputs(topo_root, run_dir, pism_state,
     os.makedirs(grid_dir, exist_ok=True)
 #    os.makedirs(coupled_dir, exist_ok=True)
 
+    with pushd(os.path.join(run_dir, 'inputs')):
+        symlink_rel(os.path.join(topo_root, 'global_ecO_ng.nc'), 'global_ecO_ng.nc')
+        symlink_rel(os.path.join(topo_root, 'topoo_ng.nc'), 'topoo_ng.nc')
+
     # Create ModelE grid and other general stuff (not PISM-specific)
     gridA_leaf = 'modele_ll_g1qx1.nc'
     repl = dict(    # Used to create templated makefile
@@ -367,8 +392,8 @@ def modele_pism_inputs(topo_root, run_dir, pism_state,
         topo_root = topo_root,
 
         gridA = os.path.join(topo_root, gridA_leaf),
-        global_ecO_ng = os.path.join(topo_root, 'global_ecO_ng.nc'),
-        topoo_ng = os.path.join(topo_root, 'topoo_ng.nc'),
+        global_ecO_ng = os.path.join(run_dir, 'inputs',  'global_ecO_ng.nc'),
+        topoo_ng = os.path.join(run_dir, 'inputs', 'topoo_ng.nc'),
 
         gridA_leaf = gridA_leaf,
         global_ecO_ng_leaf = 'global_ecO_ng.nc',
@@ -391,7 +416,7 @@ def modele_pism_inputs(topo_root, run_dir, pism_state,
     # Do the rest
     print('************** Makefile')
 
-    args = make_pism_args(pism_dir, pism)
+    args = make_pism_args(pism_dir, run_dir, pism)
 
     # ---- Generate icebin.cdl config file for IceBin
     lines = []
@@ -552,19 +577,19 @@ def merge_GIC(GIC0, TOPO, pism_ic, mm, oGIC):
             hsn_v[:] = hsn[:]
             tsn_v[:] = tsn[:]
 
-def modele_pism_gic(run_dir, pism_state):
+def modele_pism_gic(run_dir, pism_state, GIC0):
 
     print('BEGIN modele_pism_gic')
 
     # ======== Step 1: Convert original GIC file to Lynch-Stieglitz GIC file
 
-    # Retrieve the original rundeck-provided GIC file,
-    GIC0 = os.readlink(os.path.join(run_dir, 'GIC'))
-    GIC0ns = os.path.join(run_dir, 'GIC_liclassic')
-    if is_stieglitz(GIC0):
-        GIC0 = os.readlink(GIC0ns)
-    else:
-        symlink_rel(GIC0, GIC0ns)
+#    # Retrieve the original rundeck-provided GIC file,
+#    GIC0 = os.readlink(os.path.join(run_dir, 'GIC'))
+#    GIC0ns = os.path.join(run_dir, 'GIC_liclassic')
+#    if is_stieglitz(GIC0):
+#        GIC0 = os.readlink(GIC0ns)
+#    else:
+#        symlink_rel(GIC0, GIC0ns)
 
     stem = os.path.splitext(os.path.split(GIC0)[1])[0]
     GIC1 = os.path.join(run_dir, 'inputs', stem+'_stieglitz.nc')
@@ -598,6 +623,10 @@ def modele_pism_gic(run_dir, pism_state):
         GIC1, os.path.join(run_dir, 'inputs', 'topoa.nc'),
         pism_state, mmA, GIC2)
 
+    # Symlink the GIC file
+    with pushd(os.path.join(run_dir, 'inputs')):
+        symlink_rel(GIC2, 'GIC')
+
 
 def main():
     topo_root = os.path.split(os.path.realpath(__file__))[0]
@@ -610,6 +639,9 @@ def main():
     parser.add_argument('--grids', dest='grid_dir',
         default=topo_root,
         help="Name of directory for temporary reusable grid files.")
+    parser.add_argument('--gic', dest='gic',
+        required=True,
+        help="Name of stock GIC file (no ECs, non-Stieglitz snow/firn model)")
     parser.add_argument('--run', dest='run_dir',
         required=True,
         help="Name of ModelE run, already created by `ectl setup`")
@@ -628,7 +660,8 @@ def main():
         topo_root, run_dir, pism_state,
         grid_dir=os.path.realpath(args.grid_dir))
 
-    modele_pism_gic(run_dir, pism_state)
+    GIC0 = ectl.pathutil.search_file(args.gic, os.environ['MODELE_FILE_PATH'].split(os.pathsep))
+    modele_pism_gic(run_dir, pism_state, GIC0)
 
 main()
 
