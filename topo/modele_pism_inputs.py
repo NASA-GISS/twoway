@@ -268,6 +268,7 @@ def make_pism_args(pism_dir, run_dir, pism):
     args.update((k,v) for k,v in pism['args'].items() if k != 'i')
     for arg in ('bootstrap', 'Mx', 'My', 'Mz', 'Mbz', 'z_spacing', 'Lz', 'Lbz',
         'ys', 'ye',   # Model run duration
+        'extra_times', 'ts_times',
         ):
         try:
             del args[arg]
@@ -292,6 +293,9 @@ def make_pism_args(pism_dir, run_dir, pism):
         if var not in evset:
             extra_vars.append(var)
     args['extra_vars'] = ','.join(extra_vars)
+
+    args['extra_times'] = '0:.1:1000'
+    args['ts_times'] = '0:.1:1000'
 
     return args
 
