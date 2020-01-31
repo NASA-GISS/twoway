@@ -36,5 +36,5 @@ else:
     ogic = args.ogic
 
 
-gic2stieglitz.gic2stieglitz(args.igic, args.ogic)
+gic2stieglitz.gic2stieglitz(args.igic, args.ogic, nlice)
 
