@@ -622,7 +622,7 @@ def modele_pism_gic(run_dir, pism_state, GIC0):
         foceanAOm = nc.variables['FOCEAN'][:]
     mmA = mmO.to_modele((foceanAOp, foceanAOm))
 
-    # Merge thet GIC file
+    # Merge the GIC file
     merge_GIC(
         GIC1, os.path.join(run_dir, 'inputs', 'topoa.nc'),
         pism_state, mmA, GIC2)
