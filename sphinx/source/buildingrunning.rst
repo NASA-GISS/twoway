@@ -97,7 +97,7 @@ times into multiple directories, based on different branches.
 Build the Software
 ------------------
 
-It should be built in the order: *ibmisc*, *icebin*, *pism*.  The first three are all built the same way; instructions for *ibmisc* are given here:
+It should be built in the order: *ibmisc*, *icebin*, *pism*.  The first three are all built the same way:
 
 .. code-block:: bash
 
@@ -105,6 +105,25 @@ It should be built in the order: *ibmisc*, *icebin*, *pism*.  The first three ar
    mkdir build
    cd build
    python3 ../../ibmisc-setup.py ..
+   make install -j20
+   popd
+
+.. code-block:: bash
+
+   pushd icebin
+   mkdir build
+   cd build
+   python3 ../../icebin-setup.py ..
+   make install -j20
+   popd
+
+
+.. code-block:: bash
+
+   pushd pism
+   mkdir build
+   cd build
+   python3 ../../pism-setup.py ..
    make install -j20
    popd
 
