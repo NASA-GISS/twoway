@@ -87,7 +87,7 @@ At this point you can clone ModelE.  You may wish to clone it multiple
 times into multiple directories, based on different branches.
 
    git clone <username>@simplex.giss.nasa.gov:/giss/gitrepo/modelE.git -b e3/twoway
-   pushd modelE; ln -s ../modele-setup.py .; popd
+   cd modelE; ln -s ../modele-setup.py .; cd ..
 
 .. note::
 
@@ -101,31 +101,31 @@ It should be built in the order: *ibmisc*, *icebin*, *pism*.  The first three ar
 
 .. code-block:: bash
 
-   pushd ibmisc
+   cd ibmisc
    mkdir build
    cd build
    python3 ../../ibmisc-setup.py ..
    make install -j20
-   popd
+   cd ..
 
 .. code-block:: bash
 
-   pushd icebin
+   cd icebin
    mkdir build
    cd build
    python3 ../../icebin-setup.py ..
    make install -j20
-   popd
+   cd ..
 
 
 .. code-block:: bash
 
-   pushd pism
+   cd pism
    mkdir build
    cd build
    python3 ../../pism-setup.py ..
    make install -j20
-   popd
+   cd ..
 
 To clean a build:
 
@@ -136,6 +136,31 @@ To clean a build:
 In the future, if you edit any of these packages, you will need to
 rebuild them.  If you edit header files in *ibmisc*, you will also
 need to rebuild *icebin*.
+
+Set up ModelE Input Files
+-------------------------
+
+TODO: This feature is not useful and too complex.
+
+.. code-block:: bash
+
+   cd ~/nobackup
+   mkdir modele_inputs
+   cd modele_inputs
+   mkdir local
+   # For NCCS discover:
+   ln -s /discover/nobackup/projects/giss/prod_input_files origin
+   # For outside of NCCS:
+   mkdir origin
+
+Add to *.bashrc*:
+
+.. code-block:: bash
+
+   # Where to look for input files
+   export MODELE_FILE_PATH=.:$HOME/nobackup/modele_inputs/origin:$HOME/nobackup/modele_inputs/local
+   # Where input files will be downloaded to if not found
+   export MODELE_ORIGIN_DIR=$HOME/nobackup/modele_inputs/origin
 
 Set up your SLURM Configuration
 -------------------------------
@@ -150,21 +175,38 @@ Add to *.bashrc*:
 Run ModelE Standalone
 ---------------------
 
-Now you are ready to run ModelE, as explained in `modele-control docs <https://modele-control.readthedocs.io/en/latest/>`_.  Start by creating a *project directory*:
+Now you are ready to run ModelE, as explained in `modele-control docs
+<https://modele-control.readthedocs.io/en/latest/>`_.  Start by
+creating a top-level *experiment* directory, which will house a number of
+*studies*:
 
 .. code-block:: sh
 
-   mkdir -p ~/exp/myproject
-   cd ~/exp/myproject
+   mkdir ~/exp
    echo >~/exp/ectl.conf   # Marks this as a project directory
 
-Now you can run multiple different variations of the model (*runs*) within the project:
+Now you can create a *study directory*.  A study is a collection of
+related ModelE *runs*:
 
 .. code-block:: sh
 
+   cd ~/exp
+   mkdir mystudy
+
+Now you can create a ModelE *run*.  This command configures a run based on:
+
+1. A ModelE source location (`--src` flag).
+2. A ModelE rundeck (`--rundeck` flag).
+3. The directory in which the run should be created (positional argument).
+
+.. code-block:: sh
+
+   cd mystudy
    ectl setup --src ~/git/twoway-discover/modelE --rundeck ~/git/twoway-discover/modelE/templates/E6F40.R run1
 
-In the future you can do either of:
+Once the run directory has been created, the source and rundeck
+locations don't need to be recreated.  You can just re-setup using one
+of either:
 
 .. code-block:: sh
 
@@ -182,3 +224,5 @@ Now you can run it:
 
    ectl run -ts 19491231,19500102 -np 28 --time 11:00:00 --launcher slurm-debug run1
 
+For more on running ModelE with ModelE-Control, see `ModelE-Control
+Documentation <https://modele-control.readthedocs.io>`_.
