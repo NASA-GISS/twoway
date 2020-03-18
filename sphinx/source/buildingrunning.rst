@@ -81,6 +81,11 @@ Now clone the software you need:
    git clone git@github.com:citibeth/icebin.git
    git clone git@github.com:citibeth/twoway.git
    git clone git@github.com:pism/pism.git -b efischer/dev
+
+
+At this point you can clone ModelE.  You may wish to clone it multiple
+times into multiple directories, based on different branches.
+
    git clone <username>@simplex.giss.nasa.gov:/giss/gitrepo/modelE.git -b e3/twoway
    pushd modelE; ln -s ../modele-setup.py .; popd
 
@@ -99,7 +104,7 @@ It should be built in the order: *ibmisc*, *icebin*, *pism*.  The first three ar
    pushd ibmisc
    mkdir build
    cd build
-   python3 ../../ibmisc-setup.py
+   python3 ../../ibmisc-setup.py ..
    make install -j20
    popd
 
@@ -118,18 +123,10 @@ Set up your SLURM Configuration
 
 Add to *.bashrc*:
 
-```
-export ECTL_LAUNCHER=slurm
-#export ECTL_LAUNCHER=slurm-debug
-#export ECTL_LAUNCHER=mpi
+.. code-block:: bash
 
-# Used with runE for 
+   export ECTL_LAUNCHER=slurm
 
-# SLURM General QoS
-export QSUB_STRING="sbatch -A s1001 -n %np -t %t "
-# SLURM Debug QoS
-# export QSUB_STRING="sbatch --qos=debug -A s1001 -n %np -t %t "
-```
 
 Run ModelE Standalone
 ---------------------
