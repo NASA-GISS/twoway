@@ -360,6 +360,7 @@ available for use by multiple ModelE-PISM runs.
    cp -r $HARNESS/pism/examples/std-greenland .
    cd std-greenland
    ./preprocess.sh nproc=$nproc
+   export PISM_BIN=$(dirname $(which pismr))  # Spack Env set this wrong
    nice ./spinup.sh $nproc const 1000 20 sia g20km_10ka.nc
 
 .. note::
@@ -385,7 +386,7 @@ without dynamic ice sheets:
 
 .. code-block:: bash
 
-   cd twoway-discover/twoway/topo
+   cd $HARNESS/twoway/topo
    # TOPO file with global ECs, for uncoupled runs
    make topoa.nc
 
