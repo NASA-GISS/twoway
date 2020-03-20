@@ -617,22 +617,14 @@ def merge_GIC(GIC0, TOPO, pism_ic, mm, oGIC):
             tsn_v[:] = tsn[:]
 
 def modele_pism_gic(run_dir, pism_state, GIC0):
+    """GIC0:
+        Original rundeck-provided GI file."""
 
     print('BEGIN modele_pism_gic')
 
     # ======== Step 1: Convert original GIC file to Lynch-Stieglitz GIC file
-
-#    # Retrieve the original rundeck-provided GIC file,
-#    GIC0 = os.readlink(os.path.join(run_dir, 'GIC'))
-#    GIC0ns = os.path.join(run_dir, 'GIC_liclassic')
-#    if is_stieglitz(GIC0):
-#        GIC0 = os.readlink(GIC0ns)
-#    else:
-#        symlink_rel(GIC0, GIC0ns)
-
     stem = os.path.splitext(os.path.split(GIC0)[1])[0]
     GIC1 = os.path.join(run_dir, 'inputs', stem+'_stieglitz.nc')
-
 
     print('stem {}'.format(stem))
     print('GIC0 {}'.format(GIC0))
