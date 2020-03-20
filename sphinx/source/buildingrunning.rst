@@ -8,32 +8,33 @@ These instructions outline how to set up a coupled ModelE-PISM on
 part, command lines that can be cut-n-pasted into *discover* are used;
 but many pathes can be changed to suit your needs as well.
 
-.. note::
+* This tutorial assumes the use of the *bash* command shell.
 
-   We assume the following paths throughout this tutorial.  The
-   software may be installed in any place; and the user may set these
-   paths however they like.  These environment variables do NOT need
-   to be set to use this software, they are merely set for the
-   purposes of this tutorial.
+* We assume the following paths.  The software may be installed in any
+  place; and the user may set these paths however they like.  These
+  environment variables do NOT need to be set to use this software,
+  they are merely set for the purposes of this tutorial.  However, if
+  you set these variables as appropriate in your shell now, you can
+  cut-n-paste from later parts of the tutorial.
 
-   .. code-block:: bash
+  .. code-block:: bash
 
-      # Location of shared Spack instance containing installed
-      # environment
-      SPACK=~eafisch2/spack7
+     # Location of shared Spack instance containing installed
+     # environment
+     SPACK=~eafisch2/spack7
 
-      # Location of user's Spack harness
-      HARNESS=~/harness/twoway
+     # Location of user's Spack harness
+     HARNESS=~/harness/twoway
 
-      # Location of user's ModelE runs
-      EXP=~/exp
+     # Location of user's ModelE runs
+     EXP=~/exp
 
-      # Your username on the simplex git server
-      SIMPLEX_USER=$USER
+     # Your username on the simplex git server
+     SIMPLEX_USER=$USER
 
-      # Where you will store downloaded ModelE input files
-      # Use this location for discover; otherwise invent one
-      INPUT_FILES=/discover/nobackup/projects/giss/prod_input_files
+     # Where you will store downloaded ModelE input files
+     # Use this location for discover; otherwise invent one
+     INPUT_FILES=/discover/nobackup/projects/giss/prod_input_files
 
 
 Build the Spack Environment
@@ -138,8 +139,10 @@ Now clone the software you need:
 At this point you can clone ModelE.  You may wish to clone it multiple
 times into multiple directories, based on different branches.
 
+.. code-block:: bash
+
    git clone $SIMPLEX_USER@simplex.giss.nasa.gov:/giss/gitrepo/modelE.git -b e3/twoway
-   cd modelE; ln -s ../modele-setup.py .; cd ..
+   cd $HARNESS/modelE; ln -s ../modele-setup.py .
 
 .. note::
 
@@ -200,7 +203,22 @@ ModelE uses two environment variables related to input files:
   files will be downloaded.  Typically also contained in
   ``MODELE_FILE_PATH``.
 
-These can be set up as follows:
+Input files are set up differently on *NCCS Discover* vs. any other
+system, because the files are already present on *discover*; whereas
+they must be downloaded for any other system.  Therefore, instructions
+are slightly different, see the following sub-sections:
+
+.. note::
+
+   TODO: Rename these variables to be consistent with usage in
+   ``.modelErc``, which uses ``GCMSEARCHPATH`` variable.
+
+General Supercomputers
+``````````````````````
+
+For systems other than *NCCS Discover*, add lines to *.bashrc* by
+cut-n-paste the following interactively:
+
 
 .. code-block:: bash
 
@@ -210,26 +228,53 @@ Add to *.bashrc*:
 
 .. code-block:: bash
 
+   cat <<EOF >>~/.bashrc
    # Where input files will be downloaded to if not found
    export MODELE_ORIGIN_DIR=$INPUT_FILES
 
    # Where to look for input files
    export MODELE_FILE_PATH=.:$INPUT_FILES
+   EOF
+
+After this is done, you may wish to look over / edit *.bashrc*.
+
+NCCS Discover
+`````````````
+
+For *NCCS Discover*, add lines to *.bashrc* by cut-n-paste the
+following interactively:
+
+.. code-block:: bash
+
+   cat <<EOF >>~/.bashrc
+   # Where input files will be downloaded to if not found
+   export MODELE_ORIGIN_DIR=$INPUT_FILES
+
+   # Where to look for input files
+   export MODELE_FILE_PATH=.:$INPUT_FILES
+   EOF
+
+After this is done, you may wish to look over / edit *.bashrc*.
 
 .. note::
 
-   TODO: Rename these variables to be consistent with usage in
-   ``.modelErc``, which uses ``GCMSEARCHPATH`` variable.
+   Maybe ``MODELE_ORIGIN_DIR`` can be removed altogether because
+   downloading is not needed.
 
 
 Set up your SLURM Configuration
 -------------------------------
 
-Add to *.bashrc*:
+Add lines to *.bashrc* by cut-n-paste the following interactively:
 
 .. code-block:: bash
 
+   cat <<EOF >>~/.bashrc
+   # Controls how ModelE-Control launches jobs by default.
    export ECTL_LAUNCHER=slurm
+   EOF
+
+After this is done, you may wish to look over / edit *.bashrc*.
 
 .. note::
 
