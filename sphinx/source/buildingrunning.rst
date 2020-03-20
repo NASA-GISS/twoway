@@ -291,8 +291,8 @@ creating a top-level *experiment* directory, which will house a number of
 
 .. code-block:: sh
 
-   mkdir ~/exp
-   echo >~/exp/ectl.conf   # Marks this as a project directory
+   mkdir $EXP
+   echo >$EXP/ectl.conf   # Marks this as a project directory
 
 Now you can create a *study directory*.  A study is a collection of
 related ModelE *runs*:
@@ -322,16 +322,18 @@ of either:
    ectl setup run1
    cd run1; ectl setup .
 
-Now you can run this:
+Now you can run as follows.  Note that `-np` indicates the number of
+cores to use.
 
 .. code-block:: sh
 
-   ectl run --help
-   ectl run -ts 19491231,19500201
+   # Obtain number of physical cores on this machine (for this tutorial)
+   ncpus=$(grep "physical id" /proc/cpuinfo | sort -u | wc -l)
+   corespercpu=$(grep "cpu cores" /proc/cpuinfo |sort -u |cut -d":" -f2)
+   nproc=$((ncpus*corespercpu))
 
-Now you can run it:
-
-   ectl run -ts 19491231,19500102 -np 28 --time 11:00:00 --launcher slurm-debug run1
+   # Short run of ModelE
+   ectl run -ts 19491231,19500102 -np $nproc --time 00:10:00 --launcher slurm-debug run1
 
 For more on running ModelE with ModelE-Control, see `ModelE-Control
 Documentation <https://modele-control.readthedocs.io>`_.
@@ -340,23 +342,31 @@ Documentation <https://modele-control.readthedocs.io>`_.
 Spinup PISM in Greenland
 ------------------------
 
-These instuctions follow those in `PISM Docs <https://pism-docs.org/sphinx/manual/std-greenland/index.html>_`.
-
-Create a spun-up PISM.  Normally, this would be part of the project
-directory, and be used by multiple runs.
+These instuctions follow those in `PISM Docs
+<https://pism-docs.org/sphinx/manual/std-greenland/index.html>`_ to
+spin up a sample PISM ice sheet at *20km* resolution.  In this case,
+we are making the PISM spin-up to be part of the study directory,
+available for use by multiple ModelE-PISM runs.
 
 .. code-block:: bash
 
-   # Obtain number of physical cores on this machine
+   # Obtain number of physical cores on this machine (for this tutorial)
    ncpus=$(grep "physical id" /proc/cpuinfo | sort -u | wc -l)
    corespercpu=$(grep "cpu cores" /proc/cpuinfo |sort -u |cut -d":" -f2)
    nproc=$((ncpus*corespercpu))
 
+   # Spinup PISM
    cd $EXP/mystudy
    cp -r $HARNESS/pism/examples/std-greenland .
    cd std-greenland
    ./preprocess.sh nproc=$nproc
    nice ./spinup.sh $nproc const 1000 20 sia g20km_10ka.nc
+
+.. note::
+
+   Normally, PISM jobs are run within a batch system.  This example
+   simply runs on the local node, which is not always advisable on HPC
+   login nodes.
 
 
 EC-Enabled TOPO File
