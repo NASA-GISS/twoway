@@ -3,6 +3,8 @@
 Building / Running ModelE-PISM Coupled Model
 ============================================
 
+This is Craig's version
+
 These instructions outline how to set up a coupled ModelE-PISM on
 *discover* (or any computer), starting from scratch.  For the most
 part, command lines that can be cut-n-pasted into *discover* are used;
