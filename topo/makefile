@@ -30,19 +30,19 @@ modele_ll_g1qx1-sr_g20_searise.nc: modele_ll_g1qx1.nc sr_g20_searise.nc
 # ------------------------------------------------------------------
 
 # Convert TOPO-generation input files to NetCDF, for easy viewing
-Z2MX2M_NGDC = $(shell ./searchenv Z2MX2M.NGDC MODELE_FILE_PATH)
+Z2MX2M_NGDC = $(shell python3 ./searchenv.py Z2MX2M.NGDC MODELE_FILE_PATH)
 Z2MX2M.NGDC.nc: $(Z2MX2M_NGDC)
 	giss2nc $(Z2MX2M_NGDC) Z2MX2M.NGDC.nc --endian=big --names=FOCEN2,ZETOP2
 
-Z10MX10M = $(shell ./searchenv Z10MX10M MODELE_FILE_PATH)
+Z10MX10M = $(shell python3 ./searchenv.py Z10MX10M MODELE_FILE_PATH)
 Z10MX10M.nc: $(Z10MX10M)
 	giss2nc $(Z10MX10M) Z10MX10M.nc --endian=big --names=FOCEANS,FLAKES,FLANDS,dZOCENs,ZONTS
 
-ZICEHXH = $(shell ./searchenv ZICEHXH MODELE_FILE_PATH)
+ZICEHXH = $(shell python3 ./searchenv.py ZICEHXH MODELE_FILE_PATH)
 ZICEHXH.nc: $(ZICEHXH)
 	giss2nc $(ZICEHXH) ZICEHXH.nc --endian=big --names=dZGICH,FGICEH,ZSOLDH
 
-ZNGDC1 = $(shell ./searchenv ZNGDC1 MODELE_FILE_PATH)
+ZNGDC1 = $(shell python3 ./searchenv.py ZNGDC1 MODELE_FILE_PATH)
 ZNGDC1.nc: $(ZNGDC1)
 	giss2nc $(ZNGDC1) ZNGDC1.nc --endian=big --names=_,_,_,FCONT1,_,FGICE1
 
@@ -73,7 +73,7 @@ z1qx1n_bs1-onlygr.nc : z1qx1n_bs1-withgr.nc z1qx1n_bs1-nogr.nc
 #  ===========================================
 # ETOPO1
 
-ZETOPO1_NCEI = $(shell ./searchenv ZETOPO1.NCEI MODELE_FILE_PATH)
+ZETOPO1_NCEI = $(shell python3 ./searchenv.py ZETOPO1.NCEI MODELE_FILE_PATH)
 ZETOPO1.NCEI.nc : $(ZETOPO1_NCEI)
 	giss2nc $(ZETOPO1_NCEI) ZETOPO1.NCEI.nc --endian=big --names=FOCEAN,ZICTOP,ZSOLID --type=int16
 
