@@ -351,15 +351,15 @@ def symlink_rel(src, dest):
         # If a file already existed there, the resulting error is appropriate.
         os.symlink(src_rel, dest)
 
-commitRE = r'commit\s+([0-9a-fA-F]+)'
-def resolve_gic(gic):
+commitRE = re.compile(r'commit\s+([0-9a-fA-F]+)')
+def resolve_gic(run_dir, gic):
     """Digs the name of the GIC file out of the rundeck, if it's not given
     on the command line."""
 
     if gic is None:
         with pushd(os.path.join(run_dir, 'config')):
             # Get earliest commit
-            for line in subprocess.run(['git', 'log'], check=True, stdout=PIPE).stdout.decode().splitlines():
+            for line in subprocess.run(['git', 'log'], check=True, stdout=subprocess.PIPE).stdout.decode().splitlines():
                 match = commitRE.match(line)
                 if match is not None:
                     commit = match.group(1)
@@ -372,7 +372,7 @@ def resolve_gic(gic):
                         check=True, stdout=fout)
 
                 # Fish out GIC from that early version of the rundeck
-                fin = legacy.preprocessor('rundeck.R.orig', [])
+                fin = ectl.rundeck.legacy.preprocessor('rundeck.R.orig', [])
                 lrd = ectl.rundeck.legacy.LegacyRundeck(fin)
                 for line in lrd.sections['Data input files'].parsed_lines():
                     symbol,fname = line.parsed
@@ -699,7 +699,7 @@ def main():
         topo_root, run_dir, pism_state,
         grid_dir=os.path.realpath(args.grid_dir))
 
-    modele_pism_gic(run_dir, pism_state, resolve_gic(args.gic))
+    modele_pism_gic(run_dir, pism_state, resolve_gic(run_dir, args.gic))
 
 main()
 
