@@ -5,10 +5,8 @@ Building / Running ModelE-PISM Coupled Model
 
 These instructions outline how to set up a coupled ModelE-PISM on
 *discover* (or any computer), starting from scratch.  For the most
-part, command lines that can be cut-n-pasted into *discover* are used;
-but many pathes can be changed to suit your needs as well.
-
-* This tutorial assumes the use of the *bash* command shell.
+part, command lines that can be cut-n-pasted into*discover* are used.
+This tutorial assumes the use of the *bash* command shell.
 
 Path Setup
 ----------
@@ -59,9 +57,8 @@ needed for ModelE-PISM coupling:
 
    cd $(dirname $SPACK)
    git clone git@github.com:citibeth/spack.git -b efischer/giss2 $(basename $SPACK))
-   cd $SPACK
    # Don't worry about errors on this command
-   source var/spack/environments/$SPENV/loads-x
+   source $SPACK/var/spack/environments/$SPENV/loads-x
 
 
 Download Packages into Shared Spack Environment
@@ -150,12 +147,12 @@ Use Spack to Build Environement
 
 .. note::
 
-   The Spack environment twoway-discover (``$SPENV``) is meant to work on the
-   *NCCS Discover* supercomputer.  If this is being built on another
-   system, then that environent should be copied, modified as
-   appropriate for that system, checked in and submitted as a pull
-   request.  Further details are out of the scope of this document;
-   see `Spack Environments
+   The Spack environment tw-discover12 (``$SPENV``) is meant to work
+   on the *NCCS Discover* supercomputer, SLES12 version.  If this is
+   being built on another system, then that environent should be
+   copied, modified as appropriate for that system, checked in and
+   submitted as a pull request.  Further details are out of the scope
+   of this document; see `Spack Environments
    <https://spack.readthedocs.io/en/latest/environments.html>`_:
 
    .. code-block:: bash
