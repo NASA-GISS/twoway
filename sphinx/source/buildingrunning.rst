@@ -56,7 +56,7 @@ needed for ModelE-PISM coupling:
 .. code-block:: bash
 
    cd $(dirname $SPACK)
-   git clone git@github.com:citibeth/spack.git -b efischer/giss2 $(basename $SPACK))
+   git clone git@github.com:citibeth/spack.git -b efischer/giss2 $(basename $SPACK)
    # Don't worry about errors on this command
    source $SPACK/var/spack/environments/$SPENV/loads-x
 
@@ -229,8 +229,16 @@ times into multiple directories, based on different branches.
 Build the Software
 ------------------
 
-It should be built in the order: *ibmisc*, *icebin*, *pism*.  The
+It should be built in the order: *pism*, *ibmisc*, *icebin*.  The
 first three are all built the same way:
+
+.. code-block:: bash
+
+   cd $HARNESS/pism
+   mkdir build
+   cd build
+   python3 ../../pism-setup.py ..
+   make install -j20
 
 .. code-block:: bash
 
@@ -248,14 +256,6 @@ first three are all built the same way:
    python3 ../../icebin-setup.py ..
    make install -j20
 
-
-.. code-block:: bash
-
-   cd $HARNESS/pism
-   mkdir build
-   cd build
-   python3 ../../pism-setup.py ..
-   make install -j20
 
 To clean a build:
 
