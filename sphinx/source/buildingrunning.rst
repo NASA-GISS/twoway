@@ -294,8 +294,13 @@ which amends ``.bashrc``:
    export MODELE_FILE_PATH=.:$INPUT_FILES
    EOF
 
-After this is done, you may wish to look over / edit *.bashrc*.
+.. note::
 
+   * After this is done, you may wish to look over / edit *.bashrc*.
+
+   * Depending on your system, your startup script might be named
+     something different: *~/.profile* and *~/.bash_profile* are
+     common alternatives.
 
 Set up your SLURM Configuration
 -------------------------------
@@ -309,11 +314,16 @@ Add lines to *.bashrc* by cut-n-paste the following interactively:
    export ECTL_LAUNCHER=slurm
    EOF
 
-After this is done, you may wish to look over / edit *.bashrc*.
-
 .. note::
 
-   TODO: Move this configuration parameter into the `ectl.conf` file.
+   * After this is done, you may wish to look over / edit *.bashrc*.
+
+   * Depending on your system, your startup script might be named
+     something different: *~/.profile* and *~/.bash_profile* are
+     common alternatives.
+
+   * TODO: Move this configuration parameter into the `ectl.conf` file.
+
 
 
 Run ModelE Standalone
