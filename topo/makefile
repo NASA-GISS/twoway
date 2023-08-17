@@ -72,7 +72,7 @@ z1qx1n_bs1-onlygr.nc : z1qx1n_bs1-withgr.nc z1qx1n_bs1-nogr.nc
 
 #  ===========================================
 # ETOPO1
-
+# LR to replace with python3 edit_ZETOPO1.py
 ZETOPO1_NCEI = $(shell python3 ./searchenv.py ZETOPO1.NCEI MODELE_FILE_PATH)
 ZETOPO1.NCEI.nc : $(ZETOPO1_NCEI)
 	giss2nc $(ZETOPO1_NCEI) ZETOPO1.NCEI.nc --endian=big --names=FOCEAN,ZICTOP,ZSOLID --type=int16
@@ -106,6 +106,10 @@ gmask1m.nc : # gmask1m.cdl   This is assumed to be part of the git repo
 focean1m_gmask.png ZETOPO1.NCEI-SeparateGreenland.nc : ZETOPO1.NCEI.nc gmask1m.nc
 	python3 regenerate_focean1_gmask.py
 
+#LR to add
+# ZETOPO1.NCEI-SeparateAntarctica.nc
+# ZETOPO1.NCEI-SeparateAntarctica-and-Greenland.nc
+
 # ------------------------------------------------
 # Generate global map of 1-minute ice, ocean mask, elevation
 # This is used to generate elevation classes and ModelE TOPO files
@@ -113,7 +117,7 @@ focean1m_gmask.png ZETOPO1.NCEI-SeparateGreenland.nc : ZETOPO1.NCEI.nc gmask1m.n
 
 # With Greenland
 etopo1_ice_g1m.nc : ZETOPO1.NCEI-SeparateGreenland.nc ZNGDC1.nc
-	etopo1_ice -g etopo1_ice_g
+	etopo1_ice -g -a etopo1_ice_g
 
 #g1qx1-etopo1_ice_g1m.nc : etopo1_ice_g1m.nc
 #	overlap_hntr g1qx1 g1mx1m etopo1_ice_g1m.nc -o g1qx1-etopo1_ice_g1m.nc
@@ -160,10 +164,23 @@ topoa_check.nc : topoa.nc global_ecO.nc global_ec.nc
 
 # Without Greenland
 etopo1_ice_ng1m.nc : ZETOPO1.NCEI-SeparateGreenland.nc ZNGDC1.nc
-	etopo1_ice etopo1_ice_ng
+	etopo1_ice -a etopo1_ice_ng
+
+etopo1_ice_na1m.nc : ZETOPO1.NCEI-SeparateGreenland.nc ZNGDC1.nc
+	etopo1_ice -g etopo1_ice_na
+
+etopo1_ice_ngna1m.nc : ZETOPO1.NCEI-SeparateGreenland.nc ZNGDC1.nc
+	etopo1_ice etopo1_ice_ngna
 
 topoo_ng.nc : etopo1_ice_ng1m.nc Z10MX10M.nc
 	make_topoo etopo1_ice_ng1m.nc topoo_ng.nc >topoo_ng.out 2>topoo_ng.err
+
+topoo_ngna.nc : etopo1_ice_ngna1m.nc Z10MX10M.nc
+	make_topoo etopo1_ice_ngna1m.nc topoo_ngna.nc >topoo_ngna.out 2>topoo_ngna.err
+
+topoo_na.nc : etopo1_ice_na1m.nc Z10MX10M.nc
+	make_topoo etopo1_ice_na1m.nc topoo_na.nc >topoo_na.out 2>topoo_na.err
+
 
 
 # Six regridding matrices (compressed), with mismatched regridding, w/o Greenland
@@ -172,6 +189,14 @@ global_ecO_ng.nc.mk : topoo_ng.nc etopo1_ice_ng1m.nc
 
 global_ecO_ng.nc : global_ecO_ng.nc.mk
 	make -f global_ecO_ng.nc.mk
+
+
+global_ecO_na.nc.mk : topoo_na.nc etopo1_ice_na1m.nc
+	global_ec g1qx1 g1mx1m ghxh etopo1_ice_na1m.nc topoo_na.nc --gcm-grid ocean --matrix-names EvA -o global_ecO_na.nc
+
+global_ecO_na.nc : global_ecO_na.nc.mk
+	make -f global_ecO_na.nc.mk
+
 
 #topoa_ng_nc4.nc : global_ecO_ng.nc topoo_ng.nc
 #	make_topoa -o topoa_ng_nc4.nc --global_ecO global_ecO_ng.nc --topoo topoo_ng.nc

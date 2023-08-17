@@ -1,0 +1,87 @@
+# IceBin: A Coupling Library for Ice Models and GCMs
+# Copyright (c) 2013-2016 by Elizabeth Fischer
+# 
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU Lesser General Public License as published
+# by the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+# 
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU Lesser General Public License for more details.
+# 
+# You should have received a copy of the GNU Lesser General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+# Creates the base of a ICEBIN input file (a MatrixMaker output file)
+# We will append stuff to this, based on the ice model used (PISM, etc).
+
+import icebin
+import ibmisc
+
+import giss.pism
+import numpy as np
+import sys
+import giss.ncutil
+import netCDF4
+import os
+import os.path
+import sys
+import pickle
+import argparse
+
+def make_icebin_in_base(gridA_fname, gridI_fname, overlap_fname, pism_spinup_fname, ofname):
+    # gridA_name = 'modele_ll_g2x2_5'
+    # gridI_name = 'searise_g%d' % ice_dx
+    # DATA_PATH = os.environ['DATA_PATH']
+    #   pism_spinup_fname = os.path.join(DATA_PATH, 'searise/Greenland_5km_v1.1.nc')
+
+#    ice_dx=20       # 20km ice grid
+    #ice_dx=5       # 5km ice grid
+
+    # ========== Set up gridA and height points
+#    gridA_fname = os.path.join(grid_dir, gridA_name + '.nc')
+    hpdefs = np.array(range(0,21))*200.0 - 200.0
+    print('BEGIN read {}'.format(gridA_fname))
+    mm = icebin.GCMRegridder(gridA_fname, 'grid', hpdefs, True)
+    print('END read {}'.format(gridA_fname))
+
+
+    # ========= Add each Ice Sheet
+
+    # --- Antarctica
+    print('PISM spinup file: {}'.format(pism_spinup_fname))
+    (elevI, maskI) = giss.pism.read_elevI_maskI(pism_spinup_fname)
+    print('len(elevI) = ', elevI.shape)
+
+#    gridI_fname = os.path.join(grid_dir, '%s.nc' % gridI_name)
+#    gridI_leaf = os.path.split(gridI_fname)[1]
+#    overlap_fname = os.path.join(grid_dir, '%s-%s.nc' % (gridA_name, gridI_leaf))
+    
+    print('overlap_fname {}'.format(overlap_fname))
+
+    print('maskI',maskI.shape)
+    mm.add_sheet('antarctica',
+        gridI_fname, 'grid',
+        overlap_fname, 'exgrid',
+        'Z_INTERP')
+#        elevI, maskI)
+
+    # ========== Finish up and write out
+    print('Writing: {}'.format(ofname))
+    ncio = ibmisc.NcIO(ofname, 'replace')
+    mm.ncio(ncio, 'm')
+    ncio.close()
+
+#make_icebin_in_base( \
+#    '.',
+#    'modele_ll_g2x2_5',
+#    'sr_g20_pism',
+#    'pismsheet_elev_mask.nc',
+#    './pismsheet_g20_icebin_in.nc')
+##   './modele_ll_g2x2_5-sr_g20_pism-base.nc')
+
+#grid_dir,gridA_name,gridI_name,pism_spinup_fname,ofname = sys.argv[1:]
+
+make_icebin_in_base(*sys.argv[1:])

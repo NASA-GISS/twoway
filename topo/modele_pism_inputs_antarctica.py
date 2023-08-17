@@ -1,6 +1,6 @@
 # Prepares inputs for a ModelE-PISM coupled run
 #
-# Eg: python3 ../topo/modele_pism_inputs.py --out e17 --pism ../pism/std-greenland/g20km_10ka.nc
+# Eg: python3 ../topo/modele_pism_inputs.py --out e17 --pism ../pism/std-antarctica/g20km_10ka.nc
 
 import sys
 import argparse
@@ -48,8 +48,8 @@ makefile_str = """
 all : topoa.nc
 
 # ----------------- Things we make here
-{gridA} {global_ecO_ng} {topoo_ng} :
-	cd {topo_root}; $(MAKE) {gridA_leaf} {global_ecO_ng_leaf} {topoo_ng_leaf}
+{gridA} {global_ecO_na} {topoo_na} :
+	cd {topo_root}; $(MAKE) {gridA_leaf} {global_ecO_na_leaf} {topoo_na_leaf}
 
 
 {gridI} : # only re-generate if it doesn't exist, it is named by content
@@ -68,13 +68,13 @@ exgridO.nc : {exgrid}
 gcmO.nc : {exgrid} {pism_state} {gridA} {gridI}
 	echo '*****************************************************************'
 	echo '[makefile] Assembling IceBin Input File from grids (contains loadable gcmO).'
-	python3 {topo_root}/write_icebin_in_base.py {gridA} {gridI} {exgrid} {pism_state} ./gcmO.nc
+	python3 {topo_root}/write_icebin_in_base_antarctica.py {gridA} {gridI} {exgrid} {pism_state} ./gcmO.nc
 
-topoo_merged.nc : {pism_state} gcmO.nc {global_ecO_ng} {topoo_ng}
+topoo_merged.nc : {pism_state} gcmO.nc {global_ecO_na} {topoo_na}
 	# Merge without squashing
-	make_merged_topoo --squash_ec 0 --topoo_merged topoo_merged.nc --elevmask pism:{pism_state} --gcmO gcmO.nc --global_ecO {global_ecO_ng} --topoo {topoo_ng}
+	make_merged_topoo --squash_ec 0 --topoo_merged topoo_merged.nc --elevmask pism:{pism_state} --gcmO gcmO.nc --global_ecO {global_ecO_na} --topoo {topoo_na}
 	# Merge with squashing
-	# make_merged_topoo --topoo_merged topoo_merged.nc --elevmask pism:{pism_state} --gcmO gcmO.nc --global_ecO {global_ecO_ng} --topoo {topoo_ng}
+	# make_merged_topoo --topoo_merged topoo_merged.nc --elevmask pism:{pism_state} --gcmO gcmO.nc --global_ecO {global_ecO_na} --topoo {topoo_na}
 
 
 topo_oc.nc : topoo_merged.nc
@@ -116,14 +116,14 @@ variables:
     int m.info ;
 
         // Definition of grids used in this ModelE run
-        // (atmosphere, elevation class definitions, greenland)
+        // (atmosphere, elevation class definitions, antarctica)
         m.info:grid = "input-file:./inputs/gcmO.nc";
 
-        // Global TOPO file, on ocean (O) grid, but missing Greenland
-        m.info:topo_ocean = "input-file:./inputs/topoo_ng.nc";
+        // Global TOPO file, on ocean (O) grid, but missing Antarctica
+        m.info:topo_ocean = "input-file:./inputs/topoo_na.nc";
 
-        // EvO matrix, missing Greenland
-        m.info:global_ec = "input-file:./inputs/global_ecO_ng.nc";
+        // EvO matrix, missing Antarctica
+        m.info:global_ec = "input-file:./inputs/global_ecO_na.nc";
 
         // Where IceBin may write stuff
         m.info:output_dir = "output-dir:icebin";
@@ -133,15 +133,15 @@ variables:
         // appropriately zero B.C. to the ice sheet.
         m.info:use_smb = "t" ;
 
-    // Additional variables agument m.greenland.info from main icebin_in
-    // These variables are specific to Greenland
-    int m.greenland.info ;
-        // Output for greenland-specific stuff
-        m.greenland.info:output_dir = "output-dir:greenland";
+    // Additional variables agument m.antarctica.info from main icebin_in
+    // These variables are specific to Antarctica
+    int m.antarctica.info ;
+        // Output for antarctica-specific stuff
+        m.antarctica.info:output_dir = "output-dir:antarctica";
 
         // The ice model with which we are coupling.
         // See IceCoupler::Type [DISMAL, PISM, ISSM, WRITER]
-        m.greenland.info:ice_coupler = "PISM" ;
+        m.antarctica.info:ice_coupler = "PISM" ;
 
         // Should we upate the elevation field in update_ice_sheet()?
         // Normally, yes.  But in some TEST CASES ONLY --- when the SMB
@@ -149,43 +149,43 @@ variables:
         // ice model is using --- then this can cause problems in the
         // generated SMB fields.
         // See IceModel_PISM::update_elevation
-        m.greenland.info:update_elevation = "t" ;
+        m.antarctica.info:update_elevation = "t" ;
 
         // Scale size of Gaussian smoother for EvI in X,Y,Z directions
-        m.greenland.info:sigma = 50000., 50000., 100. ;
+        m.antarctica.info:sigma = 50000., 50000., 100. ;
 
         // Variable currently in icebin_in, but maybe they should be moved here.
-        // m.greenland.info:interp_grid = "EXCH" ;
-        // m.greenland.info:interp_style = "Z_INTERP" ;
+        // m.antarctica.info:interp_grid = "EXCH" ;
+        // m.antarctica.info:interp_style = "Z_INTERP" ;
         // Also: hcdefs, indexingHC
 
     // Variables specific to the ModelE side of the coupling
-    double m.greenland.modele ;
+    double m.antarctica.modele ;
 
         // Should ModelE prepare for Dirichlet or Neumann boundary
         // conditions with the dynamic ice model?
         // See 
-        m.greenland.modele:coupling_type = "DIRICHLET_BC" ;
+        m.antarctica.modele:coupling_type = "DIRICHLET_BC" ;
 
-    double m.greenland.pism ;
+    double m.antarctica.pism ;
         // Command-line arguments provided to PISM upon initialization
         // Paths will be resolved for filenames in this list.
-{greenland_pism_args}
+{antarctica_pism_args}
 
-//        m.greenland.pism:i = "input-file:pism/std-greenland/g20km_10ka.nc" ;
-//        m.greenland.pism:skip = "" ;
-//        m.greenland.pism:skip_max = "10" ;
-//        m.greenland.pism:surface = "given" ;
-//        m.greenland.pism:surface_given_file = "input-file:pism/std-greenland/pism_Greenland_5km_v1.1.nc" ;
-//        m.greenland.pism:calving = "ocean_kill" ;
-//        m.greenland.pism:ocean_kill_file = "input-file:pism/std-greenland/pism_Greenland_5km_v1.1.nc" ;
-//        m.greenland.pism:sia_e = "3.0" ;
-//        m.greenland.pism:ts_file = "output-file:greenland/ts_g20km_10ka_run2.nc" ;
-//        m.greenland.pism:ts_times = "0:1:1000" ;
-//        m.greenland.pism:extra_file = "output-file:greenland/ex_g20km_10ka_run2.nc" ;
-//        m.greenland.pism:extra_times = "0:.1:1000" ;
-//        m.greenland.pism:extra_vars = "climatic_mass_balance,ice_surface_temp,diffusivity,temppabase,tempicethk_basal,bmelt,tillwat,csurf,mask,thk,topg,usurf" ;
-//        m.greenland.pism:o = "g20km_10ka_run2.nc" ;
+//        m.antarctica.pism:i = "input-file:pism/std-antarctica/g20km_10ka.nc" ;
+//        m.antarctica.pism:skip = "" ;
+//        m.antarctica.pism:skip_max = "10" ;
+//        m.antarctica.pism:surface = "given" ;
+//        m.antarctica.pism:surface_given_file = "input-file:pism/std-antarctica/pism_Antarctica_5km_v1.1.nc" ;
+//        m.antarctica.pism:calving = "ocean_kill" ;
+//        m.antarctica.pism:ocean_kill_file = "input-file:pism/std-antarctica/pism_Antarctica_5km_v1.1.nc" ;
+//        m.antarctica.pism:sia_e = "3.0" ;
+//        m.antarctica.pism:ts_file = "output-file:antarctica/ts_g20km_10ka_run2.nc" ;
+//        m.antarctica.pism:ts_times = "0:1:1000" ;
+//        m.antarctica.pism:extra_file = "output-file:antarctica/ex_g20km_10ka_run2.nc" ;
+//        m.antarctica.pism:extra_times = "0:.1:1000" ;
+//        m.antarctica.pism:extra_vars = "climatic_mass_balance,ice_surface_temp,diffusivity,temppabase,tempicethk_basal,bmelt,tillwat,csurf,mask,thk,topg,usurf" ;
+//        m.antarctica.pism:o = "g20km_10ka_run2.nc" ;
 
 }}
 """
@@ -196,6 +196,7 @@ def snoop_pism(pism_state):
     pism_state:
         Name of the PISM state file
     """
+    print("LR pism_state="+pism_state)
     # Directory of the PISM run
     pism_state = os.path.realpath(pism_state)
     pism_dir = os.path.split(pism_state)[0]
@@ -205,9 +206,8 @@ def snoop_pism(pism_state):
     vals['pism_state'] = pism_state
     print('pism_state = {}'.format(pism_state))
     with netCDF4.Dataset(pism_state) as nc:
-        # Read command line
         print(nc.command)
-        print("=============")
+        # Read command line
         cmd = re.split(r'\s+', nc.command)
         config_nc = nc.variables['pism_config']
         Mx = int(getattr(config_nc, 'grid.Mx'))
@@ -229,13 +229,14 @@ def snoop_pism(pism_state):
         i += 1
 
     # Read the 'i' file for more info
-    fname = os.path.normpath(os.path.join(pism_dir, args['i']))
-    print("LLLLLLLLLLLL")
+    fname = os.path.normpath(os.path.join(pism_dir, args['atmosphere_given_file']))
+    # LR changed this from 'i'
     print("fname="+fname)
     with netCDF4.Dataset(fname) as nc:
         vals['proj4'] = nc.proj4
-        xc5 = nc.variables['x1'][:]    # Cell centers (for standard 5km grid)
-        yc5 = nc.variables['y1'][:]
+        # LR changed x1 -> x
+        xc5 = nc.variables['x'][:]    # Cell centers (for standard 5km grid)
+        yc5 = nc.variables['y'][:]
 
     # Determine cell centers on our chosen resolution
     xc = np.array(list(xc5[0] + (xc5[-1]-xc5[0]) * ix / (Mx-1) for ix in range(0,Mx)))
@@ -254,7 +255,7 @@ def snoop_pism(pism_state):
         dxdy = '{}_{}'.format(idx,idy)
 
     iname = os.path.split(args['i'])[1]
-    if iname.startswith('pism_Greenland'):
+    if iname.startswith('pism_Antarctica'):
         vals['name'] = 'pism_g{}km_{}{}'.format(dxdy, vals['index_order'][0], vals['index_order'][1])
     else:
         vals['name'] = '{}{}km_{}'.format(os.path.splitext(iname)[0], dxdy, vals['index_order'][0], vals['index_order'][1])
@@ -283,12 +284,15 @@ def make_pism_args(pism_dir, run_dir, pism):
 
     # Get absolute name of files given in PISM command line as relative
     #for key in ('i', 'surface_given_file', 'ocean_kill_file', 'ts_file', 'extra_file', 'o'):
-    for key in ('i', 'surface_given_file', 'ocean_kill_file'):
-        abs = os.path.normpath(os.path.join(pism_dir, args[key]))
-        args[key] = 'input-file:{}'.format(os.path.relpath(abs, run_dir))
+    print("XXXXXXXXXXXX")
+    for key in ('i', 'surface_given_file', 'ocean_kill_file','atmosphere_given_file'):
+        if key in args:
+            abs = os.path.normpath(os.path.join(pism_dir, args[key]))
+            args[key] = 'input-file:{}'.format(os.path.relpath(abs, run_dir))
 
     for key in ('ts_file', 'extra_file', 'o'):
-        args[key] = 'output-file:{}'.format(os.path.join('greenland', args[key]))
+        if key in args:
+            args[key] = 'output-file:{}'.format(os.path.join('antarctica', args[key]))
 
 
     # Add to -extra_vars
@@ -425,8 +429,8 @@ def modele_pism_inputs(topo_root, run_dir, pism_state,
 #    os.makedirs(coupled_dir, exist_ok=True)
 
     with pushd(os.path.join(run_dir, 'inputs')):
-        symlink_rel(os.path.join(topo_root, 'global_ecO_ng.nc'), 'global_ecO_ng.nc')
-        symlink_rel(os.path.join(topo_root, 'topoo_ng.nc'), 'topoo_ng.nc')
+        symlink_rel(os.path.join(topo_root, 'global_ecO_na.nc'), 'global_ecO_na.nc')
+        symlink_rel(os.path.join(topo_root, 'topoo_na.nc'), 'topoo_na.nc')
 
     # Create ModelE grid and other general stuff (not PISM-specific)
     gridA_leaf = 'modele_ll_g1qx1.nc'
@@ -435,12 +439,12 @@ def modele_pism_inputs(topo_root, run_dir, pism_state,
         topo_root = topo_root,
 
         gridA = os.path.join(topo_root, gridA_leaf),
-        global_ecO_ng = os.path.join(run_dir, 'inputs',  'global_ecO_ng.nc'),
-        topoo_ng = os.path.join(run_dir, 'inputs', 'topoo_ng.nc'),
+        global_ecO_na = os.path.join(run_dir, 'inputs',  'global_ecO_na.nc'),
+        topoo_na = os.path.join(run_dir, 'inputs', 'topoo_na.nc'),
 
         gridA_leaf = gridA_leaf,
-        global_ecO_ng_leaf = 'global_ecO_ng.nc',
-        topoo_ng_leaf = 'topoo_ng.nc')
+        global_ecO_na_leaf = 'global_ecO_na.nc',
+        topoo_na_leaf = 'topoo_na.nc')
 
 
     # Create the PISM grid spec
@@ -464,8 +468,8 @@ def modele_pism_inputs(topo_root, run_dir, pism_state,
     # ---- Generate icebin.cdl config file for IceBin
     lines = []
     for key,val in args.items():
-        lines.append('        m.greenland.pism:{} = "{}" ;'.format(key,val))
-    repl['greenland_pism_args'] = '\n'.join(lines)
+        lines.append('        m.antarctica.pism:{} = "{}" ;'.format(key,val))
+    repl['antarctica_pism_args'] = '\n'.join(lines)
 
     with open(os.path.join(run_dir, 'config', 'icebin.cdl'), 'w') as fout:
         fout.write(icebin_cdl_str.format(**repl))
@@ -539,9 +543,9 @@ def merge_GIC(GIC0, TOPO, pism_ic, mm, oGIC):
     # Get regridding matrices
     nhc_localice = mm.nhc   # Elevation classes in local ice, not including global ice
 
-    rm = mm.regrid_matrices('greenland', emI_ice, correctA=False)
+    rm = mm.regrid_matrices('antarctica', emI_ice, correctA=False)
     EvI_n = rm.matrix('EvI')    # No projection correction; use for regridding [J kg-1]
-    rm = mm.regrid_matrices('greenland', emI_ice, correctA=True)
+    rm = mm.regrid_matrices('antarctica', emI_ice, correctA=True)
     AvI = rm.matrix('AvI')
 
     xx = AvI.to_coo()
@@ -735,7 +739,7 @@ main()
 #
 #    # Get regridding matrices
 #    mm = icebin.GCMRegridder(icebin_in)
-#    rm = mm.regrid_matrices('greenland')
+#    rm = mm.regrid_matrices('antarctica')
 #    EvI_n = rm.matrix('EvI', correctA=False)    # No projection correction; use for regridding [J kg-1]
 #    AvI = rm.matrix('AvI')
 #
@@ -859,7 +863,7 @@ main()
 #    TOPO = rd.params.files['TOPO'].rval
 #
 #    with netCDF4.Dataset(os.path.join('config', 'icebin.nc')) as nc:
-#        pism_ic = nc.variables['m.greenland.pism'].i
+#        pism_ic = nc.variables['m.antarctica.pism'].i
 #        icebin_in = nc.variables['m.info'].grid
 #
 #    redo_GIC(GIC0, TOPO, pism_ic, icebin_in, GIC=os.path.join(args_run, 'GIC'))
