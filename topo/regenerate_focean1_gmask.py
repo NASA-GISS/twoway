@@ -60,7 +60,7 @@ with netCDF4.Dataset(incname, 'r') as ncin:
                 im1m_d = ncout.createDimension('im1m', size=val1m.shape[1])
 
             # Create variable
-            print('creating {}'.format(vname))
+            #print('creating {}'.format(vname))
             ncvar = ncout.createVariable(vname, 'd', ('jm1m', 'im1m'))
             ncvar[:] = val1m[:]
 
@@ -76,7 +76,7 @@ with netCDF4.Dataset(oncname) as ncin:
     focean1m = np.zeros(ncvar.shape, dtype=np.uint8)
     focean1m[:] = ncvar[:]
 
-print('Saving the PNG file')
+#print('Saving the PNG file')
 
 # Save it all to a PNG file
 img = Image.fromarray(focean1m, mode='P')

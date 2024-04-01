@@ -34,7 +34,7 @@ def make_grid(grid_cmd, grid_fname):
         return False
 
     cmd = grid_cmd + ['-o', grid_fname]
-    print(' '.join(cmd))
+    #print(' '.join(cmd))
     ret = subprocess.run(cmd)
     if ret.returncode != 0:
         raise RuntimError("Command failed: {}".format(cmd))
@@ -196,6 +196,7 @@ def snoop_pism(pism_state):
     pism_state:
         Name of the PISM state file
     """
+    #print("LR pism_state="+pism_state)
     # Directory of the PISM run
     pism_state = os.path.realpath(pism_state)
     pism_dir = os.path.split(pism_state)[0]
@@ -203,10 +204,9 @@ def snoop_pism(pism_state):
     # Read the main PISM state file
     vals = collections.OrderedDict()
     vals['pism_state'] = pism_state
-    print('pism_state = {}'.format(pism_state))
     with netCDF4.Dataset(pism_state) as nc:
         # Read command line
-        print(nc.command)
+        #print(nc.command)
         print("=============")
         cmd = re.split(r'\s+', nc.command)
         config_nc = nc.variables['pism_config']
@@ -230,12 +230,13 @@ def snoop_pism(pism_state):
 
     # Read the 'i' file for more info
     fname = os.path.normpath(os.path.join(pism_dir, args['i']))
-    print("LLLLLLLLLLLL")
-    print("fname="+fname)
+    print("fname for xc5, yc5 ="+fname)
     with netCDF4.Dataset(fname) as nc:
         vals['proj4'] = nc.proj4
         xc5 = nc.variables['x1'][:]    # Cell centers (for standard 5km grid)
         yc5 = nc.variables['y1'][:]
+
+
 
     # Determine cell centers on our chosen resolution
     xc = np.array(list(xc5[0] + (xc5[-1]-xc5[0]) * ix / (Mx-1) for ix in range(0,Mx)))
@@ -244,6 +245,10 @@ def snoop_pism(pism_state):
     vals['y_centers'] = yc
     #vals['index_order'] = (0,1)    # old PISM order; totally obsolete since 2015
     vals['index_order'] = (1,0)    # SeaRise order
+
+    print("len xc, yc =",len(xc),len(yc))
+
+
 
     # Name grid after name of input file
     idx = int(.5 + (xc[1] - xc[0]) / 1000.)
@@ -283,6 +288,7 @@ def make_pism_args(pism_dir, run_dir, pism):
 
     # Get absolute name of files given in PISM command line as relative
     #for key in ('i', 'surface_given_file', 'ocean_kill_file', 'ts_file', 'extra_file', 'o'):
+    print("XXXXXXXXXXXX")
     for key in ('i', 'surface_given_file', 'ocean_kill_file'):
         abs = os.path.normpath(os.path.join(pism_dir, args[key]))
         args[key] = 'input-file:{}'.format(os.path.relpath(abs, run_dir))
@@ -315,7 +321,7 @@ def center_to_boundaries(xc):
 def write_gridspec_xy(pism, spec_fname):
     """Given info gleaned from PISM, writes it out as a GridSpec_XY that
     can be read by the grid generator."""
-
+    print("Write gridspec_xy to ",spec_fname)
     with netCDF4.Dataset(spec_fname, 'w') as nc:
         xc = pism['x_centers']
         xb = center_to_boundaries(xc)
@@ -413,7 +419,7 @@ def modele_pism_inputs(topo_root, run_dir, pism_state,
 #    coupled_dir: (OUT)
 #        Name of directory where intermediate files for coupled run
 #        inputs are written.
-
+    print("BEGIN modele_pism_inputs")
     pism_dir = os.path.split(pism_state)[0]
 
     if grid_dir is None:
@@ -447,6 +453,7 @@ def modele_pism_inputs(topo_root, run_dir, pism_state,
     pism = snoop_pism(pism_state)
     write_gridspec_xy(pism, os.path.join(run_dir, 'inputs', 'gridI_spec.nc'))
     gridI_leaf = '{}.nc'.format(pism['name'])
+    print("gridIleaf=",gridI_leaf)
 #    gridI_leaf = 'sr_g20_pism.nc'
 #    gridI_leaf = 'sr_g20_searise.nc'
     gridI_fname = os.path.join(grid_dir, gridI_leaf)
@@ -479,6 +486,8 @@ def modele_pism_inputs(topo_root, run_dir, pism_state,
         rcmd = subprocess.run(cmd)
         if rcmd.returncode != 0:
             raise RuntimeError('Problem running the makefile')
+
+    print("END modele_pism_inputs")
 
 def is_stieglitz(gic):
     """Determines if a GIC file is Lynch-Stieglitz format."""
@@ -683,11 +692,11 @@ def main():
     args = parser.parse_args()
 
     pism = snoop_pism(args.pism)
-    write_gridspec_xy(pism, 'x.nc')
+    #write_gridspec_xy(pism, 'x.nc')
 
-    for k,v in pism['args'].items():
-        if k != 'args':
-            print(k,v)
+    #for k,v in pism['args'].items():
+    #    if k != 'args':
+    #        print(k,v)
 
     run_dir = os.path.realpath(args.run_dir)
     pism_state = os.path.realpath(args.pism)

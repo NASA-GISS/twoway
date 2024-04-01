@@ -204,10 +204,10 @@ def snoop_pism(pism_state):
     # Read the main PISM state file
     vals = collections.OrderedDict()
     vals['pism_state'] = pism_state
-    print('pism_state = {}'.format(pism_state))
     with netCDF4.Dataset(pism_state) as nc:
-        print(nc.command)
         # Read command line
+        print(nc.command)
+        print("=============")
         cmd = re.split(r'\s+', nc.command)
         config_nc = nc.variables['pism_config']
         Mx = int(getattr(config_nc, 'grid.Mx'))
@@ -229,22 +229,27 @@ def snoop_pism(pism_state):
         i += 1
 
     # Read the 'i' file for more info
-    fname = os.path.normpath(os.path.join(pism_dir, args['atmosphere_given_file']))
-    # LR changed this from 'i'
-    print("fname="+fname)
+    # LR mod
+    fname = os.path.normpath(os.path.join(pism_dir, args['i']))
+    print("fname for xc5, yc5 ="+fname)
     with netCDF4.Dataset(fname) as nc:
         vals['proj4'] = nc.proj4
         # LR changed x1 -> x
-        xc5 = nc.variables['x'][:]    # Cell centers (for standard 5km grid)
-        yc5 = nc.variables['y'][:]
+        xc = nc.variables['x'][:]    # Cell centers (for standard 5km grid)
+        yc = nc.variables['y'][:]
+
 
     # Determine cell centers on our chosen resolution
-    xc = np.array(list(xc5[0] + (xc5[-1]-xc5[0]) * ix / (Mx-1) for ix in range(0,Mx)))
-    yc = np.array(list(yc5[0] + (yc5[-1]-yc5[0]) * iy / (My-1) for iy in range(0,My)))
+    #xc = np.array(list(xc5[0] + (xc5[-1]-xc5[0]) * ix / (Mx-1) for ix in range(0,Mx)))
+    #yc = np.array(list(yc5[0] + (yc5[-1]-yc5[0]) * iy / (My-1) for iy in range(0,My)))
     vals['x_centers'] = xc
     vals['y_centers'] = yc
     #vals['index_order'] = (0,1)    # old PISM order; totally obsolete since 2015
     vals['index_order'] = (1,0)    # SeaRise order
+
+    print("len xc, yc =",len(xc),len(yc))
+
+
 
     # Name grid after name of input file
     idx = int(.5 + (xc[1] - xc[0]) / 1000.)
@@ -256,6 +261,7 @@ def snoop_pism(pism_state):
 
     iname = os.path.split(args['i'])[1]
     if iname.startswith('pism_Antarctica'):
+        print("vals ",dxdy, vals['index_order'][0], vals['index_order'][1])
         vals['name'] = 'pism_g{}km_{}{}'.format(dxdy, vals['index_order'][0], vals['index_order'][1])
     else:
         vals['name'] = '{}{}km_{}'.format(os.path.splitext(iname)[0], dxdy, vals['index_order'][0], vals['index_order'][1])
@@ -319,7 +325,7 @@ def center_to_boundaries(xc):
 def write_gridspec_xy(pism, spec_fname):
     """Given info gleaned from PISM, writes it out as a GridSpec_XY that
     can be read by the grid generator."""
-
+    print("Write gridspec_xy to ",spec_fname)
     with netCDF4.Dataset(spec_fname, 'w') as nc:
         xc = pism['x_centers']
         xb = center_to_boundaries(xc)
@@ -417,7 +423,7 @@ def modele_pism_inputs(topo_root, run_dir, pism_state,
 #    coupled_dir: (OUT)
 #        Name of directory where intermediate files for coupled run
 #        inputs are written.
-
+    print("BEGIN modele_pism_inputs")
     pism_dir = os.path.split(pism_state)[0]
 
     if grid_dir is None:
@@ -451,6 +457,7 @@ def modele_pism_inputs(topo_root, run_dir, pism_state,
     pism = snoop_pism(pism_state)
     write_gridspec_xy(pism, os.path.join(run_dir, 'inputs', 'gridI_spec.nc'))
     gridI_leaf = '{}.nc'.format(pism['name'])
+    print("gridIleaf=",gridI_leaf)
 #    gridI_leaf = 'sr_g20_pism.nc'
 #    gridI_leaf = 'sr_g20_searise.nc'
     gridI_fname = os.path.join(grid_dir, gridI_leaf)
@@ -483,6 +490,8 @@ def modele_pism_inputs(topo_root, run_dir, pism_state,
         rcmd = subprocess.run(cmd)
         if rcmd.returncode != 0:
             raise RuntimeError('Problem running the makefile')
+
+    print("END modele_pism_inputs")
 
 def is_stieglitz(gic):
     """Determines if a GIC file is Lynch-Stieglitz format."""
