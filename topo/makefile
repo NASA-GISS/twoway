@@ -7,22 +7,35 @@ sr_g20_searise.nc :
 	searise_grid --index_order searise
 
 # Generate the 2 minute grid
+modele_ll_a2mx2m.nc:
+	modele_ll --zone a --grid 2mx2m --pole-caps=1
 modele_ll_g2mx2m.nc:
 	modele_ll --zone g --grid 2mx2m --pole-caps=0
+
 
 # Overlap two grids
 modele_ll_g2mx2m-sr_g20_searise.nc: modele_ll_g2mx2m.nc sr_g20_searise.nc
 	overlap modele_ll_g2mx2m.nc sr_g20_searise.nc
 
+modele_ll_a2mx2m-nomass_30km30km_1.nc: modele_ll_g2mx2m.nc nomass_30km30km_1.nc
+	overlap modele_ll_a2mx2m.nc nomass_30km30km_1.nc
 
 
 # Generate the ocean grid
+modele_ll_a1qx1.nc:
+	modele_ll --zone a --grid 1qx1 --pole-caps=1
+
 modele_ll_g1qx1.nc:
 	modele_ll --zone g --grid 1qx1 --pole-caps=0
+
+
 
 # Overlap two grids
 modele_ll_g1qx1-sr_g20_searise.nc: modele_ll_g1qx1.nc sr_g20_searise.nc
 	overlap modele_ll_g1qx1.nc sr_g20_searise.nc
+
+modele_ll_a1qx1-nomass_30km30km_1.nc: modele_ll_a1qx1.nc nomass_30km30km_1.nc
+	overlap modele_ll_a1qx1.nc nomass_30km30km_1.nc
 
 
 

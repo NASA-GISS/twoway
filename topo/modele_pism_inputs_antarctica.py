@@ -34,7 +34,7 @@ def make_grid(grid_cmd, grid_fname):
         return False
 
     cmd = grid_cmd + ['-o', grid_fname]
-    print(' '.join(cmd))
+    #print(' '.join(cmd))
     ret = subprocess.run(cmd)
     if ret.returncode != 0:
         raise RuntimError("Command failed: {}".format(cmd))
@@ -206,7 +206,7 @@ def snoop_pism(pism_state):
     vals['pism_state'] = pism_state
     with netCDF4.Dataset(pism_state) as nc:
         # Read command line
-        print(nc.command)
+        #print(nc.command)
         print("=============")
         cmd = re.split(r'\s+', nc.command)
         config_nc = nc.variables['pism_config']
@@ -231,7 +231,7 @@ def snoop_pism(pism_state):
     # Read the 'i' file for more info
     # LR mod
     fname = os.path.normpath(os.path.join(pism_dir, args['i']))
-    print("fname for xc5, yc5 ="+fname)
+    # get xc, yc from i file
     with netCDF4.Dataset(fname) as nc:
         vals['proj4'] = nc.proj4
         # LR changed x1 -> x
@@ -261,7 +261,7 @@ def snoop_pism(pism_state):
 
     iname = os.path.split(args['i'])[1]
     if iname.startswith('pism_Antarctica'):
-        print("vals ",dxdy, vals['index_order'][0], vals['index_order'][1])
+        #print("vals ",dxdy, vals['index_order'][0], vals['index_order'][1])
         vals['name'] = 'pism_g{}km_{}{}'.format(dxdy, vals['index_order'][0], vals['index_order'][1])
     else:
         vals['name'] = '{}{}km_{}'.format(os.path.splitext(iname)[0], dxdy, vals['index_order'][0], vals['index_order'][1])
@@ -439,7 +439,7 @@ def modele_pism_inputs(topo_root, run_dir, pism_state,
         symlink_rel(os.path.join(topo_root, 'topoo_na.nc'), 'topoo_na.nc')
 
     # Create ModelE grid and other general stuff (not PISM-specific)
-    gridA_leaf = 'modele_ll_g1qx1.nc'
+    gridA_leaf = 'modele_ll_a1qx1.nc'
     repl = dict(    # Used to create templated makefile
         pism_state = pism_state,
         topo_root = topo_root,
@@ -490,7 +490,9 @@ def modele_pism_inputs(topo_root, run_dir, pism_state,
         rcmd = subprocess.run(cmd)
         if rcmd.returncode != 0:
             raise RuntimeError('Problem running the makefile')
-
+    print("Now exiting")
+    exit(1)
+ 
     print("END modele_pism_inputs")
 
 def is_stieglitz(gic):
@@ -696,11 +698,11 @@ def main():
     args = parser.parse_args()
 
     pism = snoop_pism(args.pism)
-    write_gridspec_xy(pism, 'x.nc')
+    #write_gridspec_xy(pism, 'x.nc')
 
-    for k,v in pism['args'].items():
-        if k != 'args':
-            print(k,v)
+    #for k,v in pism['args'].items():
+    #    if k != 'args':
+    #        print(k,v)
 
     run_dir = os.path.realpath(args.run_dir)
     pism_state = os.path.realpath(args.pism)

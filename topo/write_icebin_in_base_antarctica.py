@@ -42,7 +42,9 @@ def make_icebin_in_base(gridA_fname, gridI_fname, overlap_fname, pism_spinup_fna
 
     # ========== Set up gridA and height points
 #    gridA_fname = os.path.join(grid_dir, gridA_name + '.nc')
-    hpdefs = np.array(range(0,21))*200.0 - 200.0
+    hpdefs = np.array(range(0,31))*200.0 - 200.0
+    print("hpdefs")
+    print(hpdefs)
     print('BEGIN read {}'.format(gridA_fname))
     mm = icebin.GCMRegridder(gridA_fname, 'grid', hpdefs, True)
     print('END read {}'.format(gridA_fname))
